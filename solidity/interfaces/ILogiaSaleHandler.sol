@@ -2,29 +2,34 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 interface ILogiaSaleHandler {
-    error OpenSaleBeforeWhitelistSale();
+  struct IndividualAirdrop {
+    address to;
+    uint16 quantity;
+  }
 
-    error SaleEnded();
+  error OpenSaleBeforeWhitelistSale();
 
-    error TokenSupplyExceeded();
+  error SaleEnded();
 
-    error ContractsCantBuy();
+  error TokenSupplyExceeded();
 
-    error AddressAlreadyClaimed();
+  error ContractsCantBuy();
 
-    error TokenLimitExceeded();
+  error AddressAlreadyClaimed();
 
-    error WhitelistedSaleEnded();
+  error TokenLimitExceeded();
 
-    error InvalidProof();
+  error WhitelistedSaleEnded();
 
-    error SaleNotStarted();
-    
-    error OpenSaleNotStarted();
+  error InvalidProof();
 
-    error InsufficientFunds();
+  error SaleNotStarted();
 
-    error AlreadyEnded();
+  error OpenSaleNotStarted();
 
-    event EndSale();
+  error InsufficientFunds();
+
+  error AlreadyEnded();
+
+  event EndSale();
 }
