@@ -23,6 +23,11 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
+"@chainlink/contracts@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@chainlink/contracts/-/contracts-0.4.0.tgz#4bcfd486d02cdc73047f27904119d0f8cb7291f4"
+  integrity sha512-yZGeCBd7d+qxfw9r/JxtPzsW2kCc6MorPRZ/tDKnaJI98H99j5P2Fosfehmcwk6wVZlz+0Bp4kS1y480nw3Zow==
+
 "@codechecks/client@0.1.12":
   version "0.1.12"
   resolved "https://registry.yarnpkg.com/@codechecks/client/-/client-0.1.12.tgz#519f11be8fcaa581c6ee8d5e8457e35bbbe5d9b1"
@@ -911,10 +916,10 @@
     widest-line "^3.1.0"
     wrap-ansi "^6.2.0"
 
-"@openzeppelin/contracts@4.4.2":
-  version "4.4.2"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.4.2.tgz#4e889c9c66e736f7de189a53f8ba5b8d789425c2"
-  integrity sha512-NyJV7sJgoGYqbtNUWgzzOGW4T6rR19FmX1IJgXGdapGPWsuMelGJn9h03nos0iqfforCbCB0iYIR0MtIuIFLLw==
+"@openzeppelin/contracts@^4.4.2", "@openzeppelin/contracts@^4.5.0":
+  version "4.6.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.6.0.tgz#c91cf64bc27f573836dba4122758b4743418c1b3"
+  integrity sha512-8vi4d50NNya/bQqCmaVzvHNmwHvS0OBKb7HNtuNwEE3scXWrP31fKQoGxNMT+KbzmrNZzatE3QK5p2gFONI/hg==
 
 "@resolver-engine/core@^0.3.3":
   version "0.3.3"
@@ -4102,6 +4107,13 @@ env-paths@^2.2.0:
   version "2.2.1"
   resolved "https://registry.yarnpkg.com/env-paths/-/env-paths-2.2.1.tgz#420399d416ce1fbe9bc0a07c62fa68d67fd0f8f2"
   integrity sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==
+
+erc721a@^3.2.0:
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/erc721a/-/erc721a-3.2.0.tgz#5f2ba2599465fbd51088b4d9d7c3e0ba340daa5e"
+  integrity sha512-bK6rT45M8csSpH/8SBAhlmyIlCh0LrejflvkSw9zVPU5pNRSe0P0YWmv/g6seYwc8OCfL9ND/fKL8LsuvuePmg==
+  dependencies:
+    "@openzeppelin/contracts" "^4.4.2"
 
 errno@~0.1.1:
   version "0.1.8"
