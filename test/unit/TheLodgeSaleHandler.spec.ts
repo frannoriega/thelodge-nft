@@ -9,7 +9,7 @@
 
 // const ONE_YEAR_IN_MILLIS = 31556952000;
 
-// describe('LogiaSaleHandler', () => {
+// describe('TheLodgeSaleHandler', () => {
 //   let saleHandler: Contract;
 //   let tokenPriceOracle: Contract;
 //   let tokenMock: Contract;
@@ -23,7 +23,7 @@
 //     await deployments.fixture(["mocks"]);
 //     tokenPriceOracle = await ethers.getContract('MockV3Aggregator');
 //     tokenMock = await ethers.getContract('TokenMock');
-//     let LogiaRevelationHandlerImpl = await ethers.getContract('LogiaRevelationHandlerImpl');
+//     let TheLodgeRevelationHandlerImpl = await ethers.getContract('TheLodgeRevelationHandlerImpl');
 //     let abiCoder = new AbiCoder();
 //     const {tree, root} = buildMerkle([wlAddress1, wlAddress2].map(a => abiCoder.encode(['address'], [a])));
 //     merkleTree = tree;
@@ -42,7 +42,7 @@
 //       openSaleStartTimestamp: now + 2 * ONE_YEAR_IN_MILLIS,
 //       merkleRoot: merkleRoot
 //     };
-//     LogiaRevelationHandlerImpl.deploy(config);
+//     TheLodgeRevelationHandlerImpl.deploy(config);
 //     await saleHandler.setEnded(false);
 //     snapshotId = await snapshot.take();
 //   })

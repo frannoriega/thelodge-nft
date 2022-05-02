@@ -11,7 +11,7 @@ import exp from 'constants';
 
 chai.use(smock.matchers);
 
-contract('LogiaRevelationHandler', () => {
+contract('TheLodgeRevelationHandler', () => {
   let revelationHandler: Contract;
   let vrfCoordinator: FakeContract<VRFCoordinatorV2Interface>;
   let snapshotId: string;
@@ -21,13 +21,13 @@ contract('LogiaRevelationHandler', () => {
     let vrfCoordinatorAddress;
     [owner, otherAddress, vrfCoordinatorAddress] = await ethers.getSigners();
     vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: await vrfCoordinatorAddress.getAddress() });
-    let LogiaRevelationHandlerImpl = await ethers.getContractFactory('LogiaRevelationHandlerImpl');
+    let TheLodgeRevelationHandlerImpl = await ethers.getContractFactory('TheLodgeRevelationHandlerImpl');
     let config = {
       subId: 0,
       vrfCoordinator: vrfCoordinator.address,
       keyHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
     };
-    revelationHandler = await LogiaRevelationHandlerImpl.deploy(config);
+    revelationHandler = await TheLodgeRevelationHandlerImpl.deploy(config);
     snapshotId = await snapshot.take();
   });
 

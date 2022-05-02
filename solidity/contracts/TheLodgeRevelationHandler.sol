@@ -2,13 +2,13 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '../interfaces/ILogiaRevelationHandler.sol';
+import '../interfaces/ITheLodgeRevelationHandler.sol';
 import '@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol';
-import '../library/LogiaConfig.sol';
+import '../library/TheLodgeConfig.sol';
 
-abstract contract LogiaRevelationHandler is Ownable, ILogiaRevelationHandler, VRFConsumerBaseV2 {
+abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
   uint256 public randomNumber;
   bool public revealed;
 
@@ -17,7 +17,7 @@ abstract contract LogiaRevelationHandler is Ownable, ILogiaRevelationHandler, VR
 
   uint64 internal _subId;
 
-  constructor(LogiaConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
+  constructor(TheLodgeConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
     if (_revelationConfig.vrfCoordinator == address(0)) revert ZeroAddress();
     coordinator = VRFCoordinatorV2Interface(_revelationConfig.vrfCoordinator);
     _keyHash = _revelationConfig.keyHash;

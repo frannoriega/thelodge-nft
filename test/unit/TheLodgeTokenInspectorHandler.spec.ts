@@ -1,16 +1,16 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { LogiaTokenInspectorHandlerImpl, LogiaTokenInspectorHandlerImpl__factory } from '@typechained';
+import { TheLodgeTokenInspectorHandlerImpl, TheLodgeTokenInspectorHandlerImpl__factory } from '@typechained';
 
-describe('LogiaTokenInspectorHandler', () => {
+describe('TheLodgeTokenInspectorHandler', () => {
   const MAX_SUPPLY = 7337;
   const SLICE_SIZE = 500;
 
-  let tokenInspectorHandler: LogiaTokenInspectorHandlerImpl;
+  let tokenInspectorHandler: TheLodgeTokenInspectorHandlerImpl;
 
   before(async function () {
-    const TokenInspectorHandlerImplFactory: LogiaTokenInspectorHandlerImpl__factory = await ethers.getContractFactory(
-      'LogiaTokenInspectorHandlerImpl'
+    const TokenInspectorHandlerImplFactory: TheLodgeTokenInspectorHandlerImpl__factory = await ethers.getContractFactory(
+      'TheLodgeTokenInspectorHandlerImpl'
     );
     tokenInspectorHandler = await TokenInspectorHandlerImplFactory.deploy({ baseURI: '', unrevealedURI: '' });
   });

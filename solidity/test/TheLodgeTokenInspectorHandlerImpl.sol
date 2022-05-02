@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity >=0.8.4 <0.9.0;
 
-import '../contracts/LogiaTokenInspectorHandler.sol';
+import '../contracts/TheLodgeTokenInspectorHandler.sol';
 
-contract LogiaTokenInspectorHandlerImpl is LogiaTokenInspectorHandler {
+contract TheLodgeTokenInspectorHandlerImpl is TheLodgeTokenInspectorHandler {
   mapping(uint256 => bool) internal _tokenDoesNotExist;
 
-  constructor(LogiaConfig.URIConfig memory _config) LogiaTokenInspectorHandler(_config) {}
+  constructor(TheLodgeConfig.URIConfig memory _config) TheLodgeTokenInspectorHandler(_config) {}
 
   function _getRandomNumber() internal pure override returns (uint256) {
     return 123_456_789;

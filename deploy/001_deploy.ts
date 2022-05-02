@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
 import { shouldVerifyContract } from '../utils/deploy';
-import { LogiaConfig } from '../typechained/Logia';
+import { TheLodgeConfig } from '../typechained/TheLodge';
 import { ethers } from 'hardhat';
 
 const IN_32_YEARS = 2651499646;
@@ -26,7 +26,7 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
       throw new Error(`Unsupported chain '${hre.network.name}`);
   }
 
-  const config: LogiaConfig.ConfigStruct = {
+  const config: TheLodgeConfig.ConfigStruct = {
     saleConfig: {
       tokenName: 'The Lodge',
       tokenSymbol: 'TLDG',
@@ -51,7 +51,7 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
   };
 
   const deploy = await hre.deployments.deploy('Lodge', {
-    contract: 'contracts/Logia.sol:Logia',
+    contract: 'contracts/TheLodge.sol:TheLodge',
     from: deployer,
     args: [config],
     log: true,

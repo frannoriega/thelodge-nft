@@ -3,7 +3,7 @@ pragma solidity >=0.8.4 <0.9.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-library LogiaConfig {
+library TheLodgeConfig {
   struct Config {
     SaleConfig saleConfig;
     RevelationConfig revelationConfig;

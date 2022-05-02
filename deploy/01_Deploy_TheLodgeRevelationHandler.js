@@ -26,7 +26,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const keyHash = networkConfig[chainId]['keyHash'];
   const waitBlockConfirmations = developmentChains.includes(network.name) ? 1 : VERIFICATION_BLOCK_CONFIRMATIONS;
   const args = [{ subId: subscriptionId, vrfCoordinator: vrfCoordinatorAddress, keyHash: keyHash }];
-  const logiaRevelationHandlerImpl = await deploy('LogiaRevelationHandlerImpl', {
+  const TheLodgeRevelationHandlerImpl = await deploy('TheLodgeRevelationHandlerImpl', {
     from: deployer,
     args: args,
     log: true,
@@ -35,12 +35,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
   if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
     log('Verifying...');
-    await verify(logiaRevelationHandlerImpl.address, args);
+    await verify(TheLodgeRevelationHandlerImpl.address, args);
   }
 
   log('Then run RandomNumberConsumer contract with the following command');
   const networkName = network.name == 'hardhat' ? 'localhost' : network.name;
-  log(`yarn hardhat request-random-number --contract ${logiaRevelationHandlerImpl.address} --network ${networkName}`);
+  log(`yarn hardhat request-random-number --contract ${TheLodgeRevelationHandlerImpl.address} --network ${networkName}`);
   log('----------------------------------------------------');
 };
 

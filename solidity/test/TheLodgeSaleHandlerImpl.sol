@@ -1,13 +1,13 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity >=0.8.4 <0.9.0;
 
-import '../contracts/LogiaSaleHandler.sol';
-import '../library/LogiaConfig.sol';
+import '../contracts/TheLodgeSaleHandler.sol';
+import '../library/TheLodgeConfig.sol';
 
-contract LogiaSaleHandlerImpl is LogiaSaleHandler {
+contract TheLodgeSaleHandlerImpl is TheLodgeSaleHandler {
   bool public ended;
 
-  constructor(LogiaConfig.SaleConfig memory _saleConfig) LogiaSaleHandler(_saleConfig) {}
+  constructor(TheLodgeConfig.SaleConfig memory _saleConfig) TheLodgeSaleHandler(_saleConfig) {}
 
   function setEnded(bool _ended) external {
     ended = _ended;

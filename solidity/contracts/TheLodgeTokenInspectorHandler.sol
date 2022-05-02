@@ -3,16 +3,16 @@ pragma solidity >=0.8.4 <0.9.0;
 
 import '@openzeppelin/contracts/utils/Strings.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '../interfaces/ILogiaTokenInspectorHandler.sol';
-import '../library/LogiaConfig.sol';
+import '../interfaces/ITheLodgeTokenInspectorHandler.sol';
+import '../library/TheLodgeConfig.sol';
 
-abstract contract LogiaTokenInspectorHandler is Ownable, ILogiaTokenInspectorHandler {
+abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspectorHandler {
   using Strings for uint256;
 
   string public baseURI;
   string public unrevealedURI;
 
-  constructor(LogiaConfig.URIConfig memory _config) {
+  constructor(TheLodgeConfig.URIConfig memory _config) {
     baseURI = _config.baseURI;
     unrevealedURI = _config.unrevealedURI;
   }

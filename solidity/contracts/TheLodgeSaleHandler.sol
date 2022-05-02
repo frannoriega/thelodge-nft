@@ -2,20 +2,20 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import '../interfaces/ITokenPriceOracle.sol';
-import '../interfaces/ILogiaSaleHandler.sol';
+import '../interfaces/ITheLodgeSaleHandler.sol';
 import 'erc721a/contracts/ERC721A.sol';
 import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
-import '../library/LogiaConfig.sol';
+import '../library/TheLodgeConfig.sol';
 
 // TODO:
 // - Setters
 // - Tests
 
-abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, ITokenPriceOracle {
+abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A, ITokenPriceOracle {
   using SafeERC20 for IERC20;
 
   // Address of the $APE <-> ETH oracle.
@@ -36,7 +36,7 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   /// Amount of tokens per address.
   mapping(address => uint256) public tokensMintedAddress;
 
-  constructor(LogiaConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
+  constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
     if (_saleConfig.saleStartTimestamp > _saleConfig.openSaleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
     tokenPrice = _saleConfig.nftPrice; // TODO: Setters
     priceOracle = AggregatorV3Interface(_saleConfig.oracle);

@@ -18,7 +18,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   // Default one below is ETH/TOKEN contract on Kovan
   const waitBlockConfirmations = developmentChains.includes(network.name) ? 1 : VERIFICATION_BLOCK_CONFIRMATIONS;
   log('----------------------------------------------------');
-  const logiaSaleHandlerImpl = await deploy('LogiaSaleHandlerImpl', {
+  const TheLodgeSaleHandlerImpl = await deploy('TheLodgeSaleHandlerImpl', {
     from: deployer,
     args: [ethTokenPriceFeedAddress],
     log: true,
@@ -28,12 +28,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   // Verify the deployment
   if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
     log('Verifying...');
-    await verify(logiaSaleHandlerImpl.address, [ethTokenPriceFeedAddress]);
+    await verify(TheLodgeSaleHandlerImpl.address, [ethTokenPriceFeedAddress]);
   }
 
   log('Run Price Feed contract with command:');
   const networkName = network.name == 'hardhat' ? 'localhost' : network.name;
-  log(`yarn hardhat read-price-feed --contract ${logiaSaleHandlerImpl.address} --network ${networkName}`);
+  log(`yarn hardhat read-price-feed --contract ${TheLodgeSaleHandlerImpl.address} --network ${networkName}`);
   log('----------------------------------------------------');
 };
 
