@@ -37,7 +37,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   mapping(address => uint256) public tokensMintedAddress;
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
-    if (_saleConfig.saleStartTimestamp > _saleConfig.openSaleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
+    _validateStartTimestamps(_saleConfig.saleStartTimestamp, _saleConfig.openSaleStartTimestamp);
     tokenPrice = _saleConfig.nftPrice; // TODO: Setters
     priceOracle = AggregatorV3Interface(_saleConfig.oracle);
     maxDelay = _saleConfig.maxDelay;
@@ -134,6 +134,10 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     return (tokenPrice * quantity) / uint256(_answer);
   }
 
+  function _validateStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) internal pure {
+    if (_saleStartTimestamp > _openSaleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
+  }
+
   function _hasEnded() internal view virtual returns (bool);
 
   // Withdraw logic
@@ -148,5 +152,23 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   // Setters
   function setMaxDelay(uint32 _maxDelay) external onlyOwner {
     maxDelay = _maxDelay;
+  }
+
+  function setTokenPrice(uint256 _tokenPrice) external onlyOwner {
+    tokenPrice = _tokenPrice;
+  }
+
+  function setMaxTokensPerAddress(uint16 _maxTokensPerAddress) external onlyOwner {
+    maxTokensPerAddress = _maxTokensPerAddress;
+  }
+
+  function setSaleStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) external onlyOwner {
+    _validateStartTimestamps(_saleStartTimestamp, _openSaleStartTimestamp);
+    saleStartTimestamp = _saleStartTimestamp;
+    openSaleStartTimestamp = _openSaleStartTimestamp;
+  }
+
+  function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+    merkleRoot = _merkleRoot;
   }
 }
