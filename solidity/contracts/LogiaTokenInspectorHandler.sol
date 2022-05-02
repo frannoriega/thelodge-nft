@@ -17,7 +17,6 @@ abstract contract LogiaTokenInspectorHandler is ILogiaTokenInspectorHandler {
     unrevealedURI = _config.unrevealedURI;
   }
 
-  // Rarity distribution, calculated with random.org: FAFAAFMAAFMFAAAFFAAAMAAAFFAAA
   function getRarity(uint256 tokenId) public view override returns (Rarity rarity) {
     uint256 normalizedValue = (tokenId + _getRandomNumber()) % 29;
     (rarity, ) = _getRarityAndOrder(normalizedValue);
