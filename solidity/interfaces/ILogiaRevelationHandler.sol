@@ -2,11 +2,9 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 interface ILogiaRevelationHandler {
-    error ZeroAddress();
-    
-    error AlreadyGenerated();
+  error ZeroAddress();
 
-    error NotGeneratedYet();
+  error AlreadyRevealed();
 
-    event GeneratedRandomNumber(uint number);
+  event Revealed(uint256 number);
 }

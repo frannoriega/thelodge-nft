@@ -15,7 +15,7 @@ abstract contract LogiaRevelationHandler is Ownable, ILogiaRevelationHandler, VR
   VRFCoordinatorV2Interface public immutable coordinator;
   bytes32 private immutable _keyHash;
 
-  uint64 private _subId;
+  uint64 internal _subId;
 
   constructor(LogiaConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
     if (_revelationConfig.vrfCoordinator == address(0)) revert ZeroAddress();
@@ -35,9 +35,14 @@ abstract contract LogiaRevelationHandler is Ownable, ILogiaRevelationHandler, VR
   }
 
   function fulfillRandomWords(uint256, uint256[] memory randomWords) internal override {
-    if (revealed) revert AlreadyGenerated();
+    if (revealed) revert AlreadyRevealed();
     randomNumber = randomWords[0];
     revealed = true;
-    emit GeneratedRandomNumber(randomNumber);
+    emit Revealed(randomNumber);
+  }
+
+  // Setters
+  function setSubId(uint64 __subId) external onlyOwner {
+    _subId = __subId;
   }
 }

@@ -27,7 +27,7 @@ interface ILogiaSaleHandler {
 
   error OpenSaleNotStarted();
 
-  error InsufficientFunds();
+  error InvalidFunds(uint256 sent, uint256 required);
 
   error AlreadyEnded();
 
