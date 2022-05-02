@@ -1,28 +1,104 @@
-import { ethers, deployments } from 'hardhat';
-import { expect } from 'chai';
+import { ethers, network } from 'hardhat';
+import chai, { expect } from 'chai';
 import { Contract } from 'ethers';
+import { then, when, contract, given } from '@test-utils/bdd';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { snapshot } from '@utils/evm';
+import { FakeContract, smock } from '@defi-wonderland/smock';
+import { VRFCoordinatorV2Interface } from '@typechained';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
+import exp from 'constants';
 
-describe('LogiaRevelationHandler', () => {
-  let revelationHandlerFactory;
+chai.use(smock.matchers);
+
+contract('LogiaRevelationHandler', () => {
   let revelationHandler: Contract;
-  let vrfCoordinator: Contract;
+  let vrfCoordinator: FakeContract<VRFCoordinatorV2Interface>;
+  let snapshotId: string;
+  let owner: SignerWithAddress, otherAddress: SignerWithAddress;
 
-  beforeEach(async function () {
-    await deployments.fixture(['vrf']);
-    vrfCoordinator = await ethers.getContract('VRFCoordinatorV2Mock');
-    revelationHandlerFactory = await ethers.getContractFactory('LogiaRevelationHandlerMock');
-    vrfCoordinator = await ethers.getContract('VRFCoordinatorV2Mock');
+  before(async function () {
+    let vrfCoordinatorAddress;
+    [owner, otherAddress, vrfCoordinatorAddress] = await ethers.getSigners();
+    vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: await vrfCoordinatorAddress.getAddress() });
+    let LogiaRevelationHandlerImpl = await ethers.getContractFactory('LogiaRevelationHandlerImpl');
     let config = {
-      vrfCoordinator: vrfCoordinator.address,
-      keyHash: '0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc',
       subId: 0,
+      vrfCoordinator: vrfCoordinator.address,
+      keyHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
     };
-    revelationHandler = await revelationHandlerFactory.deploy(config);
+    revelationHandler = await LogiaRevelationHandlerImpl.deploy(config);
+    snapshotId = await snapshot.take();
   });
 
-  describe('Request random number', () => {
-    it('Should call the coordinator and request random number', async function () {
-      await expect(revelationHandler.reveal()).to.emit(vrfCoordinator, 'RandomWordsRequested');
+  beforeEach(async function () {
+    await snapshot.revert(snapshotId);
+  });
+
+  describe('Reveal', () => {
+    when('`reveal` method is called', () => {
+      then('The VRF Coordinator should be requested a random number', async () => {
+        let tx = await revelationHandler.reveal();
+        expect(vrfCoordinator.requestRandomWords).to.have.callCount(1);
+      });
+    });
+    when('`reveal` method is called by other than the owner', () => {
+      then('The transaction should be reverted', async () => {
+        await expect(revelationHandler.connect(otherAddress).reveal()).to.be.revertedWith('Ownable: caller is not the owner');
+      });
+    });
+    when('no call to `reveal` has been made', () => {
+      then('`revealed` flag should be false', async () => {
+        expect(await revelationHandler.revealed()).to.be.false;
+      });
+      then('`randomNumber` should be zero', async () => {
+        expect(await revelationHandler.randomNumber()).to.equal(0);
+      });
+    });
+    when('VRF Coordinator calls rawFulfillRandomWords', async function () {
+      let tx: TransactionResponse;
+      const RANDOM_NUMBER = 69;
+      given(async () => {
+        tx = await revelationHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+      });
+      then('The transaction should succeed', async () => {
+        expect(tx).to.emit(revelationHandler, 'Revealed').withArgs(RANDOM_NUMBER);
+      });
+      then('The `revealed` flag should be set to true', async () => {
+        expect(await revelationHandler.revealed()).to.equal(true);
+      });
+      then('The `randomNumber` should be set', async () => {
+        expect(await revelationHandler.randomNumber()).to.equal(RANDOM_NUMBER);
+      });
+    });
+    when('other than the VRF Coordinator calls rawFulfillRandomWords', async function () {
+      let tx: Promise<TransactionResponse>;
+      const RANDOM_NUMBER = 69;
+      given(async () => {
+        tx = revelationHandler.connect(otherAddress).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+      });
+      then('The transaction should be reverted', async () => {
+        let otherAddressString = await otherAddress.getAddress();
+        let vrfCoordinatorAddressString = await vrfCoordinator.wallet.getAddress();
+        await expect(tx).to.be.revertedWith('OnlyCoordinatorCanFulfill("' + otherAddressString + '", "' + vrfCoordinatorAddressString + '")');
+      });
+      then('The `revealed` flag should still be false', async () => {
+        expect(await revelationHandler.revealed()).to.equal(false);
+      });
+      then('The `randomNumber` should not be set', async () => {
+        expect(await revelationHandler.randomNumber()).to.equal(0);
+      });
+    });
+  });
+
+  describe('Setters', () => {
+    when('Calling `subId` setter', () => {
+      then('The `subId` should be the set value', async () => {
+        expect(await revelationHandler.getSubId()).to.equal(0);
+        let newId = 10;
+        await revelationHandler.setSubId(newId);
+        expect(await revelationHandler.getSubId()).to.equal(newId);
+      });
     });
   });
 });

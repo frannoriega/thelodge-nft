@@ -66,13 +66,14 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^0.4.0",
-    "@openzeppelin/contracts": "^4.5.0"
+    "@openzeppelin/contracts": "^4.5.0",
+    "merkletreejs": "^0.2.31"
   },
   "devDependencies": {
     "@codechecks/client": "0.1.12",
     "@commitlint/cli": "16.1.0",
     "@commitlint/config-conventional": "16.0.0",
-    "@defi-wonderland/smock": "2.0.7",
+    "@defi-wonderland/smock": "^2.0.7",
     "@dethcrypto/eth-sdk": "0.3.0",
     "@dethcrypto/eth-sdk-client": "0.1.6",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@0.3.0-beta.13",
@@ -107,6 +108,7 @@
     "pinst": "2.1.6",
     "prettier": "2.5.1",
     "prettier-plugin-solidity": "1.0.0-beta.19",
+    "sinon-chai": "^3.7.0",
     "solc-0.8": "npm:solc@0.8.11",
     "solhint": "3.3.6",
     "solhint-plugin-prettier": "0.0.5",

@@ -3,15 +3,15 @@ import { expect } from 'chai';
 import { Contract } from 'ethers';
 
 describe('LogiaTokenInspectorHandler', () => {
-  let TokenInspectorHandlerFactory;
+  let TokenInspectorHandlerImplFactory;
   let tokenInspectorHandler: Contract;
 
   beforeEach(async function () {
-    TokenInspectorHandlerFactory = await ethers.getContractFactory('LogiaTokenInspectorHandlerMock');
-    tokenInspectorHandler = await TokenInspectorHandlerFactory.deploy();
+    TokenInspectorHandlerImplFactory = await ethers.getContractFactory('LogiaTokenInspectorHandlerImpl');
+    tokenInspectorHandler = await TokenInspectorHandlerImplFactory.deploy();
   });
 
-  describe('Rarity value', () => {
+  describe('Rarity', () => {
     it('Should return true for Master rarity', async function () {
       expect(await tokenInspectorHandler.callStatic.isMaster(6)).to.equal(true);
       expect(await tokenInspectorHandler.callStatic.isMaster(10)).to.equal(true);
