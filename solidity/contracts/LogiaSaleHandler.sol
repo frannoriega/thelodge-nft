@@ -20,14 +20,14 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   using SafeERC20 for IERC20;
 
   // Address of the $APE <-> ETH oracle.
-  AggregatorV3Interface public priceOracle;
+  AggregatorV3Interface public immutable priceOracle;
   // Maximum delay between the current block timestamp and the timestamp from the oracle.
   uint32 public maxDelay;
   /// The amount of Wei required to buy an NFT token.
   uint256 public tokenPrice;
   uint16 public constant MAX_SUPPLY = 7337;
   uint16 public maxTokensPerAddress;
-  IERC20 public alternativePaymentToken;
+  IERC20 public immutable alternativePaymentToken;
 
   uint256 public saleStartTimestamp;
   uint256 public openSaleStartTimestamp;
@@ -39,11 +39,11 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
 
   constructor(LogiaConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
     if (_saleConfig.saleStartTimestamp > _saleConfig.openSaleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
-    tokenPrice = _saleConfig.nftPrice; // Can't be modified!
-    priceOracle = AggregatorV3Interface(_saleConfig.oracle); //TODO: Setters (along with token)
+    tokenPrice = _saleConfig.nftPrice; // TODO: Setters
+    priceOracle = AggregatorV3Interface(_saleConfig.oracle);
     maxDelay = _saleConfig.maxDelay;
     maxTokensPerAddress = _saleConfig.maxTokensPerAddress; //TODO: Setters
-    alternativePaymentToken = _saleConfig.alternativePaymentToken; // TODO: Setters (along with oracle)
+    alternativePaymentToken = _saleConfig.alternativePaymentToken;
     saleStartTimestamp = _saleConfig.saleStartTimestamp; //TODO: Setters
     openSaleStartTimestamp = _saleConfig.openSaleStartTimestamp; //TODO: Setters
     merkleRoot = _saleConfig.merkleRoot;
@@ -88,7 +88,7 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
 
   function _validateEthSale(uint256 quantity) internal view {
     uint256 _amountRequired = tokenPrice * quantity;
-    if (msg.value == _amountRequired) revert InvalidFunds(msg.value, _amountRequired);
+    if (msg.value != _amountRequired) revert InvalidFunds(msg.value, _amountRequired);
   }
 
   function _processTokenSale(uint256 quantity) internal {
@@ -104,6 +104,7 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
     if (msg.sender != tx.origin) revert ContractsCantBuy();
     if (failIfClaimed && tokensInAddress > 0) revert AddressAlreadyClaimed();
     if (tokensInAddress + quantity > maxTokensPerAddress) revert TokenLimitExceeded();
+    _validateCommon(quantity);
   }
 
   function _validateCommon(uint256 quantity) internal view {
@@ -123,20 +124,20 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   }
 
   function _assignTokens(address to, uint256 quantity) internal {
-    _safeMint(to, quantity);
+    _mint(to, quantity, '', false);
     tokensMintedAddress[to] += quantity;
   }
 
   function _getPriceInToken(uint256 quantity) internal view returns (uint256) {
     (, int256 _answer, , uint256 _updatedAt, ) = priceOracle.latestRoundData();
-    if (_answer < 0) revert InvalidAnswer();
+    if (_answer <= 0) revert InvalidAnswer();
     if (_updatedAt < block.timestamp - maxDelay) revert OutdatedAnswer();
     return (tokenPrice * quantity) / uint256(_answer);
   }
 
   function _hasEnded() internal view virtual returns (bool);
 
-  // Withdraw logic
+  // Withdraw logic (both ETH and alternative payment token)
 
   // Setters
   function setMaxDelay(uint32 _maxDelay) external onlyOwner {
