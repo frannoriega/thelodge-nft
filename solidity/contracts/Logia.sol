@@ -11,14 +11,26 @@ contract Logia is LogiaRevelationHandler, LogiaSaleHandler, LogiaTokenInspectorH
   constructor(LogiaConfig.Config memory _config)
     LogiaRevelationHandler(_config.revelationConfig)
     LogiaSaleHandler(_config.saleConfig)
-    LogiaTokenInspectorHandler()
+    LogiaTokenInspectorHandler(_config.uriConfig)
   {}
+
+  function tokenURI(uint256 tokenId) public view override(ERC721A, LogiaTokenInspectorHandler) returns (string memory) {
+    return LogiaTokenInspectorHandler.tokenURI(tokenId);
+  }
 
   function _hasEnded() internal view override returns (bool) {
     return revealed;
   }
 
+  function _wasRevealed() internal view override returns (bool) {
+    return revealed;
+  }
+
   function _getRandomNumber() internal view override returns (uint256) {
     return randomNumber;
+  }
+
+  function _doesTokenExist(uint256 tokenId) internal view override returns (bool) {
+    return _exists(tokenId);
   }
 }

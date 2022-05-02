@@ -1,47 +1,81 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { Contract } from 'ethers';
+import { LogiaTokenInspectorHandlerImpl, LogiaTokenInspectorHandlerImpl__factory } from '@typechained';
 
 describe('LogiaTokenInspectorHandler', () => {
-  let TokenInspectorHandlerImplFactory;
-  let tokenInspectorHandler: Contract;
+  const MAX_SUPPLY = 7337;
+  const SLICE_SIZE = 500;
 
-  beforeEach(async function () {
-    TokenInspectorHandlerImplFactory = await ethers.getContractFactory('LogiaTokenInspectorHandlerImpl');
-    tokenInspectorHandler = await TokenInspectorHandlerImplFactory.deploy();
+  let tokenInspectorHandler: LogiaTokenInspectorHandlerImpl;
+
+  before(async function () {
+    const TokenInspectorHandlerImplFactory: LogiaTokenInspectorHandlerImpl__factory = await ethers.getContractFactory(
+      'LogiaTokenInspectorHandlerImpl'
+    );
+    tokenInspectorHandler = await TokenInspectorHandlerImplFactory.deploy({ baseURI: '', unrevealedURI: '' });
   });
 
-  describe('Rarity', () => {
-    it('Should return true for Master rarity', async function () {
-      expect(await tokenInspectorHandler.callStatic.isMaster(6)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isMaster(10)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isMaster(20)).to.equal(true);
+  describe('getRarity', () => {
+    describe('distribution', () => {
+      let amountPerRarity: Map<number, number>;
+      beforeEach(async () => {
+        // Count all rarities
+        amountPerRarity = new Map();
+        for (const tokenIds of getAllTokenIdsInSlices()) {
+          const rarities = await tokenInspectorHandler.getRarities(tokenIds);
+          for (const rarity of rarities) amountPerRarity.set(rarity, (amountPerRarity.get(rarity) ?? 0) + 1);
+        }
+      });
+      it('Should only be 4301 Apprentice', async () => {
+        expect(amountPerRarity.get(0)).to.equal(4301);
+      });
+      it('Should only be 2277 Fellow', async () => {
+        expect(amountPerRarity.get(1)).to.equal(2277);
+      });
+      it('Should only be 759 Fellow', async () => {
+        expect(amountPerRarity.get(2)).to.equal(759);
+      });
     });
 
-    it('Should return true for Fellow rarity', async function () {
-      expect(await tokenInspectorHandler.callStatic.isFellow(0)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(2)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(5)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(9)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(11)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(15)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(16)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(24)).to.equal(true);
-      expect(await tokenInspectorHandler.callStatic.isFellow(25)).to.equal(true);
+    describe('when a token does not exist', () => {
+      const TOKEN_ID = 10;
+      beforeEach(async () => {
+        return tokenInspectorHandler.setIfTokenExists(TOKEN_ID, false);
+      });
+      it('asking for its rarity should fail', async () => {
+        await expect(tokenInspectorHandler.getRarity(TOKEN_ID)).to.have.revertedWith('TokenDoesNotExist');
+      });
     });
+  });
 
-    it('Should return correct rarity', async function () {
-      for (let i = 1; i <= 58; i++) {
-        // 58 = 29 * 2, just to make sure it's working correctly.
-        let rarity = await tokenInspectorHandler.callStatic.getRarity(i);
-        if (await tokenInspectorHandler.callStatic.isMaster(i % 29)) {
-          expect(rarity).to.equal(2);
-        } else if (await tokenInspectorHandler.callStatic.isFellow(i % 29)) {
-          expect(rarity).to.equal(1);
-        } else {
-          expect(rarity).to.equal(0);
+  describe('getURIId', () => {
+    const usedURIIds: Map<number, number> = new Map();
+    it('All token ids should return a valid and different URI id', async () => {
+      for (const tokenIds of getAllTokenIdsInSlices()) {
+        const uriIds = await tokenInspectorHandler.getURIIds(tokenIds);
+        for (let i = 0; i < uriIds.length; i++) {
+          const uriId = uriIds[i].toNumber();
+          expect(uriId).to.be.greaterThanOrEqual(1).and.lessThanOrEqual(MAX_SUPPLY);
+          expect(
+            usedURIIds.has(uriId),
+            `URI id '${uriId}' was calculated for token id '${tokenIds[i]}' but it already had been calculated for '${usedURIIds.get(uriId)}'`
+          ).to.be.false;
+          usedURIIds.set(uriId, tokenIds[i]);
         }
       }
+      expect(usedURIIds.size).to.equal(MAX_SUPPLY);
     });
   });
+
+  function getAllTokenIdsInSlices() {
+    const slices: number[][] = [];
+    for (let i = 0; i < MAX_SUPPLY; i += SLICE_SIZE) {
+      const tokenIds = new Array(SLICE_SIZE)
+        .fill(0)
+        .map((_, index) => index + i + 1)
+        .filter((id) => id <= MAX_SUPPLY);
+      slices.push(tokenIds);
+    }
+    return slices;
+  }
 });
