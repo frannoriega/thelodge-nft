@@ -33,4 +33,10 @@ contract TheLodge is TheLodgeRevelationHandler, TheLodgeSaleHandler, TheLodgeTok
   function _doesTokenExist(uint256 tokenId) internal view override returns (bool) {
     return _exists(tokenId);
   }
+
+  function burn(uint256[] calldata tokenIds) external {
+    for (uint256 i = 0; i < tokenIds.length; i++) {
+      _burn(tokenIds[i], true);
+    }
+  }
 }
