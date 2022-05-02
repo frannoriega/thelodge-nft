@@ -7,6 +7,7 @@ library LogiaConfig {
   struct Config {
     SaleConfig saleConfig;
     RevelationConfig revelationConfig;
+    URIConfig uriConfig;
   }
 
   struct SaleConfig {
@@ -26,5 +27,10 @@ library LogiaConfig {
     address vrfCoordinator;
     bytes32 keyHash;
     uint64 subId;
+  }
+
+  struct URIConfig {
+    string baseURI;
+    string unrevealedURI;
   }
 }

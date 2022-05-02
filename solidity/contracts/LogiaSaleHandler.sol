@@ -13,7 +13,6 @@ import '../library/LogiaConfig.sol';
 
 // TODO:
 // - Setters
-// - Withdraw logic
 // - Tests
 
 abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, ITokenPriceOracle {
@@ -52,11 +51,7 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   /// Mints the given amount of tokens for a whitelisted address.
   function whitelistMint(bytes32[] calldata _merkleProof, uint256 quantity) external payable {
     _validateWhitelistSale(quantity, tokensMintedAddress[msg.sender], _merkleProof);
-<<<<<<< HEAD
     _validateEthSale(quantity);
-=======
-    _processEthSale(quantity);
->>>>>>> 94db331 (feat(tests): added revelation + token inspector tests)
     _assignTokens(msg.sender, quantity);
   }
 
@@ -64,11 +59,7 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   function mint(uint256 quantity) external payable {
     if (block.timestamp < openSaleStartTimestamp) revert OpenSaleNotStarted();
     _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
-<<<<<<< HEAD
     _validateEthSale(quantity);
-=======
-    _processEthSale(quantity);
->>>>>>> 94db331 (feat(tests): added revelation + token inspector tests)
     _assignTokens(msg.sender, quantity);
   }
 
@@ -145,7 +136,14 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
 
   function _hasEnded() internal view virtual returns (bool);
 
-  // Withdraw logic (both ETH and alternative payment token)
+  // Withdraw logic
+  function withdrawETH(address payable recipient) external onlyOwner {
+    recipient.transfer(address(this).balance);
+  }
+
+  function withdrawAlternativeToken(address recipient) external onlyOwner {
+    alternativePaymentToken.safeTransfer(recipient, alternativePaymentToken.balanceOf(address(this)));
+  }
 
   // Setters
   function setMaxDelay(uint32 _maxDelay) external onlyOwner {
