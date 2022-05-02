@@ -129,6 +129,4 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
       return (Rarity.Apprentice, 16);
     }
   }
-
-  // TODO: We need to add a burn mechanism, so that owners can burn their own NFTs
 }
