@@ -52,7 +52,11 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   /// Mints the given amount of tokens for a whitelisted address.
   function whitelistMint(bytes32[] calldata _merkleProof, uint256 quantity) external payable {
     _validateWhitelistSale(quantity, tokensMintedAddress[msg.sender], _merkleProof);
+<<<<<<< HEAD
     _validateEthSale(quantity);
+=======
+    _processEthSale(quantity);
+>>>>>>> 94db331 (feat(tests): added revelation + token inspector tests)
     _assignTokens(msg.sender, quantity);
   }
 
@@ -60,7 +64,11 @@ abstract contract LogiaSaleHandler is Ownable, ILogiaSaleHandler, ERC721A, IToke
   function mint(uint256 quantity) external payable {
     if (block.timestamp < openSaleStartTimestamp) revert OpenSaleNotStarted();
     _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
+<<<<<<< HEAD
     _validateEthSale(quantity);
+=======
+    _processEthSale(quantity);
+>>>>>>> 94db331 (feat(tests): added revelation + token inspector tests)
     _assignTokens(msg.sender, quantity);
   }
 
