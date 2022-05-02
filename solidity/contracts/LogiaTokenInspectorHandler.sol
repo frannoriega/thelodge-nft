@@ -2,13 +2,13 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import '@openzeppelin/contracts/utils/Strings.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
 import '../interfaces/ILogiaTokenInspectorHandler.sol';
 import '../library/LogiaConfig.sol';
 
-abstract contract LogiaTokenInspectorHandler is ILogiaTokenInspectorHandler {
+abstract contract LogiaTokenInspectorHandler is Ownable, ILogiaTokenInspectorHandler {
   using Strings for uint256;
 
-  // TODO: Add setters for both URIs
   string public baseURI;
   string public unrevealedURI;
 
@@ -18,12 +18,13 @@ abstract contract LogiaTokenInspectorHandler is ILogiaTokenInspectorHandler {
   }
 
   function getRarity(uint256 tokenId) public view override returns (Rarity rarity) {
+    if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     uint256 normalizedValue = (tokenId + _getRandomNumber()) % 29;
     (rarity, ) = _getRarityAndOrder(normalizedValue);
   }
 
   function tokenURI(uint256 tokenId) public view virtual returns (string memory) {
-    // TODO: Fail if token does not exist
+    if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     if (_wasRevealed()) {
       uint256 uriId = getURIId(tokenId);
       return string(abi.encodePacked(baseURI, uriId.toString()));
@@ -32,9 +33,19 @@ abstract contract LogiaTokenInspectorHandler is ILogiaTokenInspectorHandler {
     }
   }
 
+  function setBaseURI(string calldata _baseURI) external onlyOwner {
+    baseURI = _baseURI;
+  }
+
+  function setUnrevealedURI(string calldata _unrevealedURI) external onlyOwner {
+    unrevealedURI = _unrevealedURI;
+  }
+
   function _wasRevealed() internal view virtual returns (bool);
 
   function _getRandomNumber() internal view virtual returns (uint256);
+
+  function _doesTokenExist(uint256 tokenId) internal view virtual returns (bool);
 
   // We now want to randomly calculate a 'URI id', based on the tokenId. The 'URI id' also goes from 1 to 7337 but,
   // in order to make our lives easier, the first 4301 will be Apprentice, the following 2277 will be Fellow, and the

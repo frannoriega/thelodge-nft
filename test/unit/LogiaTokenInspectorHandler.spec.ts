@@ -16,24 +16,35 @@ describe('LogiaTokenInspectorHandler', () => {
   });
 
   describe('getRarity', () => {
-    let amountPerRarity: Map<number, number>;
+    describe('distribution', () => {
+      let amountPerRarity: Map<number, number>;
+      beforeEach(async () => {
+        // Count all rarities
+        amountPerRarity = new Map();
+        for (const tokenIds of getAllTokenIdsInSlices()) {
+          const rarities = await tokenInspectorHandler.getRarities(tokenIds);
+          for (const rarity of rarities) amountPerRarity.set(rarity, (amountPerRarity.get(rarity) ?? 0) + 1);
+        }
+      });
+      it('Should only be 4301 Apprentice', async () => {
+        expect(amountPerRarity.get(0)).to.equal(4301);
+      });
+      it('Should only be 2277 Fellow', async () => {
+        expect(amountPerRarity.get(1)).to.equal(2277);
+      });
+      it('Should only be 759 Fellow', async () => {
+        expect(amountPerRarity.get(2)).to.equal(759);
+      });
+    });
 
-    beforeEach(async () => {
-      // Count all rarities
-      amountPerRarity = new Map();
-      for (const tokenIds of getAllTokenIdsInSlices()) {
-        const rarities = await tokenInspectorHandler.getRarities(tokenIds);
-        for (const rarity of rarities) amountPerRarity.set(rarity, (amountPerRarity.get(rarity) ?? 0) + 1);
-      }
-    });
-    it('Should only be 4301 Apprentice', async () => {
-      expect(amountPerRarity.get(0)).to.equal(4301);
-    });
-    it('Should only be 2277 Fellow', async () => {
-      expect(amountPerRarity.get(1)).to.equal(2277);
-    });
-    it('Should only be 759 Fellow', async () => {
-      expect(amountPerRarity.get(2)).to.equal(759);
+    describe('when a token does not exist', () => {
+      const TOKEN_ID = 10;
+      beforeEach(async () => {
+        return tokenInspectorHandler.setIfTokenExists(TOKEN_ID, false);
+      });
+      it('asking for its rarity should fail', async () => {
+        await expect(tokenInspectorHandler.getRarity(TOKEN_ID)).to.have.revertedWith('TokenDoesNotExist');
+      });
     });
   });
 

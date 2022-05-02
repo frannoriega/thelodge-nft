@@ -4,6 +4,8 @@ pragma solidity >=0.8.4 <0.9.0;
 import '../contracts/LogiaTokenInspectorHandler.sol';
 
 contract LogiaTokenInspectorHandlerImpl is LogiaTokenInspectorHandler {
+  mapping(uint256 => bool) internal _tokenDoesNotExist;
+
   constructor(LogiaConfig.URIConfig memory _config) LogiaTokenInspectorHandler(_config) {}
 
   function _getRandomNumber() internal pure override returns (uint256) {
@@ -12,6 +14,14 @@ contract LogiaTokenInspectorHandlerImpl is LogiaTokenInspectorHandler {
 
   function _wasRevealed() internal pure override returns (bool) {
     return true;
+  }
+
+  function _doesTokenExist(uint256 tokenId) internal view override returns (bool) {
+    return !_tokenDoesNotExist[tokenId];
+  }
+
+  function setIfTokenExists(uint256 tokenId, bool exists) external {
+    _tokenDoesNotExist[tokenId] = !exists;
   }
 
   function getRarities(uint256[] calldata tokenIds) external view returns (Rarity[] memory rarities) {

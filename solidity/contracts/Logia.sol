@@ -29,4 +29,8 @@ contract Logia is LogiaRevelationHandler, LogiaSaleHandler, LogiaTokenInspectorH
   function _getRandomNumber() internal view override returns (uint256) {
     return randomNumber;
   }
+
+  function _doesTokenExist(uint256 tokenId) internal view override returns (bool) {
+    return _exists(tokenId);
+  }
 }
