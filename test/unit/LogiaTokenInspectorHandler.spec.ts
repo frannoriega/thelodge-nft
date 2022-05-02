@@ -2,7 +2,7 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { LogiaTokenInspectorHandlerImpl, LogiaTokenInspectorHandlerImpl__factory } from '@typechained';
 
-describe.only('LogiaTokenInspectorHandler', () => {
+describe('LogiaTokenInspectorHandler', () => {
   const MAX_SUPPLY = 7337;
   const SLICE_SIZE = 500;
 
