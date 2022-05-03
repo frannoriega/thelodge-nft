@@ -23,9 +23,9 @@ interface ITheLodgeSaleHandler {
 
   error InvalidProof();
 
-  error SaleNotStarted();
+  error SaleNotStarted(uint256 saleStartTimestamp);
 
-  error OpenSaleNotStarted();
+  error OpenSaleNotStarted(uint256 openSaleStartTimestamp);
 
   error InvalidFunds(uint256 sent, uint256 required);
 

@@ -1,127 +1,224 @@
-// import { ethers, deployments } from 'hardhat';
-// import { MerkleTree } from 'merkletreejs';
-// import { expect } from 'chai';
-// import { Contract } from 'ethers';
-// import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-// import { snapshot } from '@utils/evm';
-// import { AbiCoder } from 'ethers/lib/utils';
-// import { buildMerkle } from '@utils/merkle';
+import { ethers } from 'hardhat';
+import { MerkleTree } from 'merkletreejs';
+import chai, { expect } from 'chai';
+import { Contract, ContractFactory, Signer } from 'ethers';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { advanceToTime, snapshot } from '@utils/evm';
+import { FakeContract, smock } from '@defi-wonderland/smock';
+import { AggregatorV3Interface, IERC20 } from '@typechained';
+import { then, when, contract, given } from '@test-utils/bdd';
+import { LogiaConfig } from 'typechained/Logia';
+import { keccak256 } from 'ethers/lib/utils';
 
-// const ONE_YEAR_IN_MILLIS = 31556952000;
+chai.use(smock.matchers);
 
-// describe('TheLodgeSaleHandler', () => {
-//   let saleHandler: Contract;
-//   let tokenPriceOracle: Contract;
-//   let tokenMock: Contract;
-//   let snapshotId: string;
-//   let owner: SignerWithAddress, wlAddress1: SignerWithAddress, wlAddress2: SignerWithAddress, otherAddress: SignerWithAddress;
-//   let merkleTree: MerkleTree;
-//   let merkleRoot: string;
+const ONE_YEAR_IN_SECONDS = 31556952;
 
-//   before(async function () {
-//     [owner, wlAddress1, wlAddress2, otherAddress] = await ethers.getSigners();
-//     await deployments.fixture(["mocks"]);
-//     tokenPriceOracle = await ethers.getContract('MockV3Aggregator');
-//     tokenMock = await ethers.getContract('TokenMock');
-//     let TheLodgeRevelationHandlerImpl = await ethers.getContract('TheLodgeRevelationHandlerImpl');
-//     let abiCoder = new AbiCoder();
-//     const {tree, root} = buildMerkle([wlAddress1, wlAddress2].map(a => abiCoder.encode(['address'], [a])));
-//     merkleTree = tree;
-//     merkleRoot = root;
-//     let now = Date.now();
-//     let config = {
-//       tokenName: 'Test',
-//       tokenSymbol: 'T',
-//       oracle: tokenPriceOracle.address,
-//       maxDelay: 10_000,
-//       // 1 ETH
-//       nftPrice: 1 * 10**18,
-//       maxTokensPerAddress: 2,
-//       alternativePaymentToken: tokenMock.address,
-//       saleStartTimestamp: now + ONE_YEAR_IN_MILLIS,
-//       openSaleStartTimestamp: now + 2 * ONE_YEAR_IN_MILLIS,
-//       merkleRoot: merkleRoot
-//     };
-//     TheLodgeRevelationHandlerImpl.deploy(config);
-//     await saleHandler.setEnded(false);
-//     snapshotId = await snapshot.take();
-//   })
+enum SaleState {
+  NotStarted = 'Sale not started yet',
+  SaleStarted = 'Sale has started',
+  OpenSaleStarted = 'Open sale has started',
+  Revealed = 'Reveal method was called',
+}
 
-//   beforeEach(async function () {
-//     await snapshot.revert(snapshotId);
-//   });
+enum AddressType {
+  Whitelisted = 'whitelisted address',
+  NonWhitelisted = 'non whitelisted address',
+  Owner = 'owner',
+  Contract = 'contract',
+}
 
-//   describe('ETH sale', () => {
-//     describe('Whitelist sale', () => {
-//       it('Should call the coordinator and request random number on reveal', async function () {
-//         await expect(saleHandler.reveal()).to.emit(tokenPriceOracle, 'RandomWordsRequested');
-//       });
-//     })
-//   })
+contract('TheLodgeSaleHandler', () => {
+  let TheLodgeSaleHandlerImpl: ContractFactory;
+  let saleHandler: Contract;
+  let tokenPriceOracle: FakeContract<AggregatorV3Interface>;
+  let token: FakeContract<IERC20>;
+  let snapshotId: string;
+  let owner: SignerWithAddress;
+  let whitelisted: SignerWithAddress[];
+  let nonWhitelisted: SignerWithAddress[];
+  let merkleTree: MerkleTree;
+  let merkleRoot: string;
+  let saleStartTimestamp: number;
+  let openSaleStartTimestamp: number;
+  let nftPrice: string;
+  let config: LogiaConfig.SaleConfigStruct;
+  let signers: Map<AddressType, SignerWithAddress[]>;
+  let dummyCallerContract: Contract;
 
-//   describe('Request random number', () => {
-//     it('Should call the coordinator and request random number on reveal', async function () {
-//       await expect(saleHandler.reveal()).to.emit(tokenPriceOracle, 'RandomWordsRequested');
-//     });
+  before(async function () {
+    const accounts = await ethers.getSigners();
+    owner = accounts[0];
+    let tokenPriceOracleAddress = accounts[1];
+    let tokenAddress = accounts[2];
+    whitelisted = accounts.slice(3, 10);
+    nonWhitelisted = accounts.slice(11, 15);
+    tokenPriceOracle = await smock.fake('@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface', {
+      address: tokenPriceOracleAddress.address,
+    });
+    token = await smock.fake('IERC20', { address: await tokenAddress.getAddress() });
+    const leaves = whitelisted.map((account) => keccak256(account.address));
+    merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
+    merkleRoot = merkleTree.getHexRoot();
+    let now = Date.now();
+    saleStartTimestamp = now + ONE_YEAR_IN_SECONDS;
+    openSaleStartTimestamp = saleStartTimestamp + ONE_YEAR_IN_SECONDS;
+    nftPrice = (10 ** 18).toString();
+    config = {
+      tokenName: 'Test',
+      tokenSymbol: 'T',
+      oracle: tokenPriceOracle.address,
+      maxDelay: 10_000,
+      // 1 ETH
+      nftPrice: nftPrice,
+      maxTokensPerAddress: 2,
+      alternativePaymentToken: token.address,
+      saleStartTimestamp: saleStartTimestamp,
+      openSaleStartTimestamp: openSaleStartTimestamp,
+      merkleRoot: merkleRoot,
+    };
+    TheLodgeSaleHandlerImpl = await ethers.getContractFactory('TheLodgeSaleHandlerImpl');
+    saleHandler = await TheLodgeSaleHandlerImpl.deploy(config);
+    await saleHandler.setEnded(false);
+    let DummyCallerContract = await ethers.getContractFactory('DummyCallerContract');
+    dummyCallerContract = await DummyCallerContract.deploy(saleHandler.address);
+    signers = new Map();
+    signers.set(AddressType.Whitelisted, whitelisted);
+    signers.set(AddressType.NonWhitelisted, nonWhitelisted);
+    signers.set(AddressType.Owner, [owner]);
+    snapshotId = await snapshot.take();
+  });
 
-//     it('Only owner can call reveal', async function () {
-//       await expect(saleHandler.connect(otherAddress).reveal()).to.be.revertedWith('Ownable: caller is not the owner');
-//     });
+  beforeEach(async function () {
+    await snapshot.revert(snapshotId);
+  });
 
-//     it('VRF callback sets random number', async function () {
-//       expect(await saleHandler.randomNumber()).to.equal(0);
-//       expect(await saleHandler.revealed()).to.equal(false);
+  for (const addressType of Object.values(AddressType)) {
+    for (const state of Object.values(SaleState)) {
+      generateTests(state, addressType);
+    }
+  }
 
-//       await saleHandler.reveal();
-//       let requestId = await saleHandler.callStatic.requestId();
-
-//       // simulate callback from the oracle network
-//       let tx = await tokenPriceOracle.fulfillRandomWords(requestId, saleHandler.address);
-
-//       expect(tx).to.emit(saleHandler, "Revealed");
-
-//       // Get RandomWordsFulfilled event from VRF coordinator call.
-//       const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
-//       const eventInterface = new ethers.utils.Interface(["event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool success)"]);
-//       // Index number 1, since index 0 is the Revealed event from our contract.
-//       const data = receipt.logs[1].data;
-//       const topics = receipt.logs[1].topics;
-//       const event = eventInterface.decodeEventLog("RandomWordsFulfilled", data, topics);
-
-//       expect(event.requestId).to.equal(requestId);
-//       expect(event.outputSeed).to.equal(requestId);
-//       expect(event.success).to.equal(true);
-
-//       expect(await saleHandler.randomNumber()).to.not.equal(0);
-//       expect(await saleHandler.revealed()).to.equal(true);
-//     });
-
-//     it('Only allow one call to fulfill randomness', async function () {
-//       await saleHandler.reveal();
-//       let requestId = await saleHandler.callStatic.requestId();
-
-//       // simulate callback from the oracle network
-//       await expect(
-//         tokenPriceOracle.fulfillRandomWords(requestId, saleHandler.address)
-//       ).to.emit(saleHandler, "Revealed");
-
-//       // We call reveal again, which will work.
-//       await saleHandler.reveal();
-//       requestId = await saleHandler.callStatic.requestId();
-
-//       // But the callback will fail.
-//       let tx = await tokenPriceOracle.fulfillRandomWords(requestId, saleHandler.address);
-
-//       const receipt = await ethers.provider.getTransactionReceipt(tx.hash);
-//       const eventInterface = new ethers.utils.Interface(["event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool success)"]);
-//       const data = receipt.logs[0].data;
-//       const topics = receipt.logs[0].topics;
-//       const event = eventInterface.decodeEventLog("RandomWordsFulfilled", data, topics);
-
-//       expect(event.requestId).to.equal(requestId);
-//       expect(event.outputSeed).to.equal(requestId);
-//       // The request should've failed
-//       expect(event.success).to.equal(false);
-//     });
-//   });
-// });
+  function generateTests(state: SaleState, addressType: AddressType) {
+    // TODO: Let `state` have an associated `given` function (to set dates).
+    describe(state, () => {
+      let quantity = 1;
+      when(addressType + ' mints with right funds', () => {
+        switch (state) {
+          case SaleState.NotStarted:
+          case SaleState.SaleStarted: {
+            then('Transaction should be reverted with OpenSaleNotStarted error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('1') })).to.be.revertedWith(
+                  'OpenSaleNotStarted(' + openSaleStartTimestamp + ')'
+                );
+              }
+            });
+            break;
+          }
+          case SaleState.OpenSaleStarted: {
+            then('Address should get the tokens', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                expect(await saleHandler.balanceOf(signerAddress.address)).to.equal(0);
+                await saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('1') });
+                expect(await saleHandler.balanceOf(signerAddress.address)).to.equal(quantity);
+              }
+            });
+            break;
+          }
+          case SaleState.Revealed: {
+            then('Transaction should be reverted with SaleEnded error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('1') })).to.be.revertedWith(
+                  'SaleEnded'
+                );
+              }
+            });
+            break;
+          }
+        }
+      });
+      when(addressType + ' mints with insufficient funds', () => {
+        switch (state) {
+          case SaleState.NotStarted:
+          case SaleState.SaleStarted: {
+            then('Transaction should be reverted with OpenSaleNotStarted error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('0.9') })).to.be.revertedWith(
+                  'OpenSaleNotStarted(' + openSaleStartTimestamp + ')'
+                );
+              }
+            });
+            break;
+          }
+          case SaleState.OpenSaleStarted: {
+            then('Transaction should be reverted with InvalidFunds error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await saleHandler
+                  .connect(signerAddress)
+                  .mint(quantity, { value: ethers.utils.parseEther('0.9') })
+                  .to.be.revertedWith('InvalidFunds(' + 9 * 10 ** 17 + ', ' + nftPrice + ')');
+              }
+            });
+            break;
+          }
+          case SaleState.Revealed: {
+            then('Transaction should be reverted with SaleEnded error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('0.9') })).to.be.revertedWith(
+                  'SaleEnded'
+                );
+              }
+            });
+            break;
+          }
+        }
+      });
+      when(addressType + ' mints with more funds than needed', () => {
+        switch (state) {
+          case SaleState.NotStarted:
+          case SaleState.SaleStarted: {
+            then('Transaction should be reverted with OpenSaleNotStarted error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('0.9') })).to.be.revertedWith(
+                  'OpenSaleNotStarted(' + openSaleStartTimestamp + ')'
+                );
+              }
+            });
+            break;
+          }
+          case SaleState.OpenSaleStarted: {
+            then('Transaction should be reverted with InvalidFunds error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await saleHandler
+                  .connect(signerAddress)
+                  .mint(quantity, { value: ethers.utils.parseEther('0.9') })
+                  .to.be.revertedWith('InvalidFunds(' + 9 * 10 ** 17 + ', ' + nftPrice + ')');
+              }
+            });
+            break;
+          }
+          case SaleState.Revealed: {
+            then('Transaction should be reverted with SaleEnded error', async () => {
+              let signerAddresses = signers.get(addressType)!;
+              for (const signerAddress of signerAddresses) {
+                await expect(saleHandler.connect(signerAddress).mint(quantity, { value: ethers.utils.parseEther('0.9') })).to.be.revertedWith(
+                  'SaleEnded'
+                );
+              }
+            });
+            break;
+          }
+        }
+      });
+    });
+  }
+});

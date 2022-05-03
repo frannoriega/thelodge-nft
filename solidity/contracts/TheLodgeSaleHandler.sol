@@ -57,7 +57,8 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   /// Mints the given amount of tokens.
   function mint(uint256 quantity) external payable {
-    if (block.timestamp < openSaleStartTimestamp) revert OpenSaleNotStarted();
+    uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
+    if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
     _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
     _validateEthSale(quantity);
     _assignTokens(msg.sender, quantity);
@@ -71,7 +72,8 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   /// Mints the given amount of tokens.
   function buyWithToken(uint256 quantity) external {
-    if (block.timestamp < openSaleStartTimestamp) revert OpenSaleNotStarted();
+    uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
+    if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
     _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
     _processTokenSale(quantity);
     _assignTokens(msg.sender, quantity);
@@ -116,7 +118,8 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     uint256 tokensInAddress,
     bytes32[] calldata _merkleProof
   ) internal view {
-    if (block.timestamp < saleStartTimestamp) revert SaleNotStarted();
+    uint256 _saleStartTimestamp = saleStartTimestamp;
+    if (block.timestamp < _saleStartTimestamp) revert SaleNotStarted(_saleStartTimestamp);
     _validateCommonSale(quantity, tokensInAddress, true);
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
     if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidProof();
