@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { TheLodgeTokenInspectorHandlerImpl, TheLodgeTokenInspectorHandlerImpl__factory } from '@typechained';
 
 describe('TheLodgeTokenInspectorHandler', () => {
-  const MAX_SUPPLY = 7337;
+  const MAX_SUPPLY = 7777;
   const SLICE_SIZE = 500;
 
   let tokenInspectorHandler: TheLodgeTokenInspectorHandlerImpl;
@@ -26,14 +26,14 @@ describe('TheLodgeTokenInspectorHandler', () => {
           for (const rarity of rarities) amountPerRarity.set(rarity, (amountPerRarity.get(rarity) ?? 0) + 1);
         }
       });
-      it('Should only be 4301 Apprentice', async () => {
-        expect(amountPerRarity.get(0)).to.equal(4301);
+      it('Should only be 4646 Apprentice', async () => {
+        expect(amountPerRarity.get(0)).to.equal(4646);
       });
-      it('Should only be 2277 Fellow', async () => {
-        expect(amountPerRarity.get(1)).to.equal(2277);
+      it('Should only be 2727 Fellow', async () => {
+        expect(amountPerRarity.get(1)).to.equal(2727);
       });
-      it('Should only be 759 Fellow', async () => {
-        expect(amountPerRarity.get(2)).to.equal(759);
+      it('Should only be 404 Fellow', async () => {
+        expect(amountPerRarity.get(2)).to.equal(404);
       });
     });
 
