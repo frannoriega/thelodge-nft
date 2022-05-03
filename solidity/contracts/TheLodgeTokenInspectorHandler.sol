@@ -104,8 +104,15 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
 
   function getRarity(uint256 tokenId) public view override returns (Rarity rarity) {
     if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
-    uint256 normalizedValue = (tokenId + _getRandomNumber()) % 77;
-    return rarities[normalizedValue].rarity;
+    uint256 uriId = getURIId(tokenId);
+    if (uriId <= 4646) {
+      return Rarity.Apprentice;
+    } else if (uriId <= 7373) {
+      // 4646 + 2727
+      return Rarity.Fellow;
+    } else {
+      return Rarity.Master;
+    }
   }
 
   function tokenURI(uint256 tokenId) public view virtual returns (string memory) {
