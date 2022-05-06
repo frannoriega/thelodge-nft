@@ -71,20 +71,14 @@ contract('TheLodgeRevelationHandler', () => {
       });
     });
     when('other than the VRF Coordinator calls rawFulfillRandomWords', () => {
-      let tx: Promise<TransactionResponse>;
       const RANDOM_NUMBER = 69;
-      given(async () => {
-        tx = revelationHandler.connect(otherAddress).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
-      });
       then('The transaction should be reverted', async () => {
         let otherAddressString = await otherAddress.getAddress();
         let vrfCoordinatorAddressString = await vrfCoordinator.wallet.getAddress();
-        await expect(tx).to.be.revertedWith('OnlyCoordinatorCanFulfill("' + otherAddressString + '", "' + vrfCoordinatorAddressString + '")');
-      });
-      then('The `revealed` flag should still be false', async () => {
+        await expect(revelationHandler.connect(otherAddress).rawFulfillRandomWords(0, [RANDOM_NUMBER])).to.be.revertedWith(
+          'OnlyCoordinatorCanFulfill("' + otherAddressString + '", "' + vrfCoordinatorAddressString + '")'
+        );
         expect(await revelationHandler.revealed()).to.equal(false);
-      });
-      then('The `randomNumber` should not be set', async () => {
         expect(await revelationHandler.randomNumber()).to.equal(0);
       });
     });

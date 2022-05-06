@@ -34,7 +34,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   bytes32 public merkleRoot;
 
   /// Amount of tokens per address.
-  mapping(address => uint256) public tokensMintedAddress;
+  // mapping(address => uint256) public tokensMintedAddress;
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
     _validateStartTimestamps(_saleConfig.saleStartTimestamp, _saleConfig.openSaleStartTimestamp);
@@ -50,40 +50,40 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   /// Mints the given amount of tokens for a whitelisted address.
   function whitelistMint(bytes32[] calldata _merkleProof, uint256 quantity) external payable {
-    _validateWhitelistSale(quantity, tokensMintedAddress[msg.sender], _merkleProof);
+    _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
     _validateEthSale(quantity);
-    _assignTokens(msg.sender, quantity);
+    _mint(msg.sender, quantity, '', false);
   }
 
   /// Mints the given amount of tokens.
   function mint(uint256 quantity) external payable {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
-    _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
+    _validateCommonSale(quantity, balanceOf(msg.sender), false);
     _validateEthSale(quantity);
-    _assignTokens(msg.sender, quantity);
+    _mint(msg.sender, quantity, '', false);
   }
 
   function whitelistBuyWithToken(bytes32[] calldata _merkleProof, uint256 quantity) external {
-    _validateWhitelistSale(quantity, tokensMintedAddress[msg.sender], _merkleProof);
+    _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
     _processTokenSale(quantity);
-    _assignTokens(msg.sender, quantity);
+    _mint(msg.sender, quantity, '', false);
   }
 
   /// Mints the given amount of tokens.
   function buyWithToken(uint256 quantity) external {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
-    _validateCommonSale(quantity, tokensMintedAddress[msg.sender], false);
+    _validateCommonSale(quantity, balanceOf(msg.sender), false);
     _processTokenSale(quantity);
-    _assignTokens(msg.sender, quantity);
+    _mint(msg.sender, quantity, '', false);
   }
 
   function airdrop(IndividualAirdrop[] calldata _airdrops) external onlyOwner {
     for (uint256 i; i < _airdrops.length; i++) {
       IndividualAirdrop memory _airdrop = _airdrops[i];
       _validateCommon(_airdrop.quantity);
-      _assignTokens(_airdrop.to, _airdrop.quantity);
+      _mint(_airdrop.to, _airdrop.quantity, '', false);
     }
   }
 
@@ -123,11 +123,6 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     _validateCommonSale(quantity, tokensInAddress, true);
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
     if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidProof();
-  }
-
-  function _assignTokens(address to, uint256 quantity) internal {
-    _mint(to, quantity, '', false);
-    tokensMintedAddress[to] += quantity;
   }
 
   function _getPriceInToken(uint256 quantity) internal view returns (uint256) {
