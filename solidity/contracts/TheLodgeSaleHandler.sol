@@ -12,7 +12,6 @@ import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '../library/TheLodgeConfig.sol';
 
 // TODO:
-// - Setters
 // - Tests
 
 abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A, ITokenPriceOracle {
@@ -32,9 +31,6 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   uint256 public openSaleStartTimestamp;
 
   bytes32 public merkleRoot;
-
-  /// Amount of tokens per address.
-  // mapping(address => uint256) public tokensMintedAddress;
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
     _validateStartTimestamps(_saleConfig.saleStartTimestamp, _saleConfig.openSaleStartTimestamp);
@@ -152,21 +148,23 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     maxDelay = _maxDelay;
   }
 
+  function setSaleStartTimestamp(uint256 _saleStartTimestamp) external onlyOwner {
+    saleStartTimestamp = _saleStartTimestamp;
+  }
+
+  function setOpenSaleStartTimestamp(uint256 _openSaleStartTimestamp) external onlyOwner {
+    openSaleStartTimestamp = _openSaleStartTimestamp;
+  }
+
+  function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+    merkleRoot = _merkleRoot;
+  }
+
   function setTokenPrice(uint256 _tokenPrice) external onlyOwner {
     tokenPrice = _tokenPrice;
   }
 
   function setMaxTokensPerAddress(uint16 _maxTokensPerAddress) external onlyOwner {
     maxTokensPerAddress = _maxTokensPerAddress;
-  }
-
-  function setSaleStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) external onlyOwner {
-    _validateStartTimestamps(_saleStartTimestamp, _openSaleStartTimestamp);
-    saleStartTimestamp = _saleStartTimestamp;
-    openSaleStartTimestamp = _openSaleStartTimestamp;
-  }
-
-  function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
-    merkleRoot = _merkleRoot;
   }
 }

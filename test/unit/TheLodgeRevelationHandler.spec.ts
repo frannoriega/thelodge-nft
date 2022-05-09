@@ -19,7 +19,7 @@ contract('TheLodgeRevelationHandler', () => {
   before(async function () {
     let vrfCoordinatorAddress;
     [owner, otherAddress, vrfCoordinatorAddress] = await ethers.getSigners();
-    vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: await vrfCoordinatorAddress.getAddress() });
+    vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: vrfCoordinatorAddress.address });
     let config = {
       subId: 0,
       vrfCoordinator: vrfCoordinator.address,

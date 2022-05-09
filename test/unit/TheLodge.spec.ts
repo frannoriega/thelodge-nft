@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import { BigNumber, Contract } from 'ethers';
 import { advanceToTime, snapshot } from '@utils/evm';
 import { FakeContract, smock } from '@defi-wonderland/smock';
-import { AggregatorV3Interface, IERC20 } from '@typechained';
+import { AggregatorV3Interface, IERC20, VRFCoordinatorV2Interface } from '@typechained';
 import { contract, given, then, when } from '@test-utils/bdd';
 import moment from 'moment';
 import { keccak256 } from 'ethers/lib/utils';
@@ -26,16 +26,20 @@ chai.use(smock.matchers);
 
 const ONE_YEAR_IN_SECONDS = 31556952;
 
-contract('TheLodgeSaleHandler', () => {
+contract('TheLodge', () => {
   let saleHandler: Contract;
   let tokenPriceOracle: FakeContract<AggregatorV3Interface>;
   let token: FakeContract<IERC20>;
+  let vrfCoordinator: FakeContract<VRFCoordinatorV2Interface>;
   let saleStartTimestamp: number;
   let openSaleStartTimestamp: number;
   let saleTestConfig: SaleTestConfig;
 
   const NAME: string = 'Test';
   const SYMBOL: string = 'T';
+  const BASE_URI: string = 'baseUri';
+  const UNREVEALED_URI: string = 'unrevealedUri';
+  const RANDOM_NUMBER: number = 69;
 
   let snapshotId: string;
 
@@ -44,13 +48,20 @@ contract('TheLodgeSaleHandler', () => {
     let owner = accounts[0];
     let tokenPriceOracleAddress = accounts[1];
     let tokenAddress = accounts[2];
-    let whitelisted = accounts.slice(3, 10);
-    let nonWhitelisted = accounts.slice(11, 15);
-    let otherAddress = accounts[16];
+    let vrfCoordinatorAddress = accounts[3];
+    let whitelisted = accounts.slice(4, 11);
+    let nonWhitelisted = accounts.slice(12, 16);
+    let otherAddress = accounts[17];
     tokenPriceOracle = await smock.fake('@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface', {
       address: tokenPriceOracleAddress.address,
     });
     token = await smock.fake('IERC20', { address: tokenAddress.address });
+    vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: vrfCoordinatorAddress.address });
+    let revelationConfig = {
+      subId: 0,
+      vrfCoordinator: vrfCoordinator.address,
+      keyHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    };
     const leaves = whitelisted.map((account) => keccak256(account.address));
     let merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
     let now = moment().unix();
@@ -59,7 +70,7 @@ contract('TheLodgeSaleHandler', () => {
     let nftPrice = BigNumber.from(10).pow(18);
     let maxTokensPerAddress = 3;
     let maxDelay = moment.duration(24, 'hours').asSeconds();
-    let config = {
+    let saleConfig = {
       tokenName: NAME,
       tokenSymbol: SYMBOL,
       oracle: tokenPriceOracle.address,
@@ -71,9 +82,17 @@ contract('TheLodgeSaleHandler', () => {
       openSaleStartTimestamp: openSaleStartTimestamp,
       merkleRoot: merkleTree.getHexRoot(),
     };
-    let TheLodgeSaleHandlerImpl = await ethers.getContractFactory('TheLodgeSaleHandlerImpl');
-    saleHandler = await TheLodgeSaleHandlerImpl.deploy(config);
-    await saleHandler.setEnded(false);
+    let uriConfig = {
+      baseURI: BASE_URI,
+      unrevealedURI: UNREVEALED_URI,
+    };
+    let config = {
+      saleConfig: saleConfig,
+      revelationConfig: revelationConfig,
+      uriConfig: uriConfig,
+    };
+    let TheLodge = await ethers.getContractFactory('TheLodge');
+    saleHandler = await TheLodge.deploy(config);
     let DummyCallerContract = await ethers.getContractFactory('DummyCallerContract');
     let dummyCallerContract = await DummyCallerContract.deploy(saleHandler.address);
     let signers = new Map();
@@ -164,7 +183,7 @@ contract('TheLodgeSaleHandler', () => {
     }
   });
 
-  describe('Whitelist buy with token', () => {
+  describe('Airdrop', () => {
     for (const state of Object.values(SaleState)) {
       describe(state, () => {
         generateGiven(state);
@@ -214,10 +233,8 @@ contract('TheLodgeSaleHandler', () => {
       case SaleState.Revealed: {
         given(async () => {
           await advanceToTime(openSaleStartTimestamp + 1);
-          tokenPriceOracle.latestRoundData.returns([0, 1, 0, moment().unix() + openSaleStartTimestamp, 0]);
-          await saleHandler.setEnded(true);
+          await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
         });
-        break;
       }
       default:
         break;
