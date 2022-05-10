@@ -11,12 +11,12 @@ import '../library/TheLodgeConfig.sol';
 /// @title TheLodgeRevelationHandler
 /// @notice Contract that handles all the revelation logic.
 abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
-  /// @notice The random number. Will be zero if the reveal was not made yet.
+  /// @inheritdoc ITheLodgeRevelationHandler
   uint256 public randomNumber;
-  /// @notice Whether the reveal was already made or not.
+  /// @inheritdoc ITheLodgeRevelationHandler
   bool public revealed;
 
-  /// @notice The address of the Chainlink's VRF Coordinator.
+  /// @inheritdoc ITheLodgeRevelationHandler
   VRFCoordinatorV2Interface public immutable coordinator;
   /// @notice The key hash to be used for requesting random words
   /// to the VRF Coordinator.
@@ -31,12 +31,8 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     _subId = _revelationConfig.subId;
   }
 
-  /// @notice Triggers the reveal. This will send a request to the VRF Coordinator
-  /// to generate a random number.
-  /// @dev While this method can be called multiple times, only one request can be
-  /// fulfilled. It's recommended that this method is called only once, or called
-  /// again if the request failed; in order to save gas.
-  function reveal() external onlyOwner {
+  /// @inheritdoc ITheLodgeRevelationHandler
+  function reveal() external override onlyOwner {
     coordinator.requestRandomWords(
       _keyHash,
       _subId,
@@ -58,8 +54,8 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     emit Revealed(randomNumber);
   }
 
-  /// @notice Sets the subscription ID.
-  function setSubId(uint64 __subId) external onlyOwner {
+  /// @inheritdoc ITheLodgeRevelationHandler
+  function setSubId(uint64 __subId) external override onlyOwner {
     _subId = __subId;
   }
 }

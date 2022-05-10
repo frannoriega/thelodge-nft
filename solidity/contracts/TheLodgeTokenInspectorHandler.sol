@@ -9,11 +9,6 @@ import '../library/TheLodgeConfig.sol';
 /// @title TheLodgeTokenInspectorHandler
 /// @notice Contract that handles all the token inspection (rarity) logic.
 abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspectorHandler {
-  struct RarityByIndex {
-    Rarity rarity;
-    uint248 orderInRarity;
-  }
-
   using Strings for uint256;
 
   /// @notice The base URI for the token.
@@ -120,8 +115,8 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     }
   }
 
-  /// @notice Generates the token URI.
-  function tokenURI(uint256 tokenId) public view virtual returns (string memory) {
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     if (_wasRevealed()) {
       uint256 uriId = getURIId(tokenId);
@@ -131,12 +126,12 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     }
   }
 
-  /// @notice Sets the base URI.
-  function setBaseURI(string calldata _baseURI) external onlyOwner {
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function setBaseURI(string calldata _baseURI) external override onlyOwner {
     baseURI = _baseURI;
   }
 
-  /// @notice Sets the unrevealed URI.
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
   function setUnrevealedURI(string calldata _unrevealedURI) external onlyOwner {
     unrevealedURI = _unrevealedURI;
   }
