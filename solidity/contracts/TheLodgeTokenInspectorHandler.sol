@@ -6,15 +6,14 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '../interfaces/ITheLodgeTokenInspectorHandler.sol';
 import '../library/TheLodgeConfig.sol';
 
+/// @title TheLodgeTokenInspectorHandler
+/// @notice Contract that handles all the token inspection (rarity) logic.
 abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspectorHandler {
-  struct RarityByIndex {
-    Rarity rarity;
-    uint248 orderInRarity;
-  }
-
   using Strings for uint256;
 
+  /// @notice The base URI for the token.
   string public baseURI;
+  /// @notice The URI to be used by all tokens, until the reveal.
   string public unrevealedURI;
   RarityByIndex[77] private rarities;
 
@@ -102,6 +101,7 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     rarities[76] = RarityByIndex(Rarity.Apprentice, 45);
   }
 
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
   function getRarity(uint256 tokenId) public view override returns (Rarity rarity) {
     if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     uint256 uriId = getURIId(tokenId);
@@ -115,7 +115,8 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     }
   }
 
-  function tokenURI(uint256 tokenId) public view virtual returns (string memory) {
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
     if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     if (_wasRevealed()) {
       uint256 uriId = getURIId(tokenId);
@@ -125,14 +126,19 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     }
   }
 
-  function setBaseURI(string calldata _baseURI) external onlyOwner {
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function setBaseURI(string calldata _baseURI) external override onlyOwner {
     baseURI = _baseURI;
   }
 
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
   function setUnrevealedURI(string calldata _unrevealedURI) external onlyOwner {
     unrevealedURI = _unrevealedURI;
   }
 
+  /// @dev This function will determine whether the reveal was made or not.
+  /// The returned value should ideally be false and then shift to true, and not change again.
+  /// @return Whether the reveal was made or not.
   function _wasRevealed() internal view virtual returns (bool);
 
   function _getRandomNumber() internal view virtual returns (uint256);

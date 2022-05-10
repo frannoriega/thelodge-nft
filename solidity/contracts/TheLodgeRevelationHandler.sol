@@ -8,13 +8,20 @@ import '@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol';
 import '../library/TheLodgeConfig.sol';
 
+/// @title TheLodgeRevelationHandler
+/// @notice Contract that handles all the revelation logic.
 abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
+  /// @inheritdoc ITheLodgeRevelationHandler
   uint256 public randomNumber;
+  /// @inheritdoc ITheLodgeRevelationHandler
   bool public revealed;
 
+  /// @inheritdoc ITheLodgeRevelationHandler
   VRFCoordinatorV2Interface public immutable coordinator;
+  /// @notice The key hash to be used for requesting random words
+  /// to the VRF Coordinator.
   bytes32 private immutable _keyHash;
-
+  /// @notice The subscription id for Chainlink's VRF.
   uint64 internal _subId;
 
   constructor(TheLodgeConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
@@ -24,7 +31,8 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     _subId = _revelationConfig.subId;
   }
 
-  function reveal() external onlyOwner {
+  /// @inheritdoc ITheLodgeRevelationHandler
+  function reveal() external override onlyOwner {
     coordinator.requestRandomWords(
       _keyHash,
       _subId,
@@ -34,6 +42,11 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     );
   }
 
+  /// @notice Callback for the VRF Coordinator to return the requested random number.
+  /// @dev Once this method is called, the state of this contract will shift to "Revealed",
+  /// which means that the random number is set in stone and subsequent calls to this
+  /// method will throw an error and revert the transaction.
+  /// @param randomWords A list with a single random number returned by the VRF Coordinator.
   function fulfillRandomWords(uint256, uint256[] memory randomWords) internal override {
     if (revealed) revert AlreadyRevealed();
     randomNumber = randomWords[0];
@@ -41,8 +54,8 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     emit Revealed(randomNumber);
   }
 
-  // Setters
-  function setSubId(uint64 __subId) external onlyOwner {
+  /// @inheritdoc ITheLodgeRevelationHandler
+  function setSubId(uint64 __subId) external override onlyOwner {
     _subId = __subId;
   }
 }

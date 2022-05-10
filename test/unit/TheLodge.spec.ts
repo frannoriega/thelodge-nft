@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import { BigNumber, Contract } from 'ethers';
 import { advanceToTime, snapshot } from '@utils/evm';
 import { FakeContract, smock } from '@defi-wonderland/smock';
-import { AggregatorV3Interface, IERC20 } from '@typechained';
+import { AggregatorV3Interface, IERC20, VRFCoordinatorV2Interface } from '@typechained';
 import { contract, given, then, when } from '@test-utils/bdd';
 import moment from 'moment';
 import { keccak256 } from 'ethers/lib/utils';
@@ -26,16 +26,21 @@ chai.use(smock.matchers);
 
 const ONE_YEAR_IN_SECONDS = 31556952;
 
-contract('TheLodgeSaleHandler', () => {
+contract('TheLodge', () => {
   let saleHandler: Contract;
   let tokenPriceOracle: FakeContract<AggregatorV3Interface>;
   let token: FakeContract<IERC20>;
+  let vrfCoordinator: FakeContract<VRFCoordinatorV2Interface>;
   let saleStartTimestamp: number;
   let openSaleStartTimestamp: number;
+  let nftPrice: BigNumber;
   let saleTestConfig: SaleTestConfig;
 
   const NAME: string = 'Test';
   const SYMBOL: string = 'T';
+  const BASE_URI: string = 'baseUri/';
+  const UNREVEALED_URI: string = 'unrevealedUri';
+  const RANDOM_NUMBER: number = 23113;
 
   let snapshotId: string;
 
@@ -44,22 +49,29 @@ contract('TheLodgeSaleHandler', () => {
     let owner = accounts[0];
     let tokenPriceOracleAddress = accounts[1];
     let tokenAddress = accounts[2];
-    let whitelisted = accounts.slice(3, 10);
-    let nonWhitelisted = accounts.slice(11, 15);
-    let otherAddress = accounts[16];
+    let vrfCoordinatorAddress = accounts[3];
+    let whitelisted = accounts.slice(4, 11);
+    let nonWhitelisted = accounts.slice(12, 16);
+    let otherAddress = accounts[17];
     tokenPriceOracle = await smock.fake('@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface', {
       address: tokenPriceOracleAddress.address,
     });
     token = await smock.fake('IERC20', { address: tokenAddress.address });
+    vrfCoordinator = await smock.fake('VRFCoordinatorV2Interface', { address: vrfCoordinatorAddress.address });
+    let revelationConfig = {
+      subId: 0,
+      vrfCoordinator: vrfCoordinator.address,
+      keyHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    };
     const leaves = whitelisted.map((account) => keccak256(account.address));
     let merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
     let now = moment().unix();
     saleStartTimestamp = now + ONE_YEAR_IN_SECONDS;
     openSaleStartTimestamp = saleStartTimestamp + ONE_YEAR_IN_SECONDS;
-    let nftPrice = BigNumber.from(10).pow(18);
+    nftPrice = BigNumber.from(10).pow(18);
     let maxTokensPerAddress = 3;
     let maxDelay = moment.duration(24, 'hours').asSeconds();
-    let config = {
+    let saleConfig = {
       tokenName: NAME,
       tokenSymbol: SYMBOL,
       oracle: tokenPriceOracle.address,
@@ -71,9 +83,17 @@ contract('TheLodgeSaleHandler', () => {
       openSaleStartTimestamp: openSaleStartTimestamp,
       merkleRoot: merkleTree.getHexRoot(),
     };
-    let TheLodgeSaleHandlerImpl = await ethers.getContractFactory('TheLodgeSaleHandlerImpl');
-    saleHandler = await TheLodgeSaleHandlerImpl.deploy(config);
-    await saleHandler.setEnded(false);
+    let uriConfig = {
+      baseURI: BASE_URI,
+      unrevealedURI: UNREVEALED_URI,
+    };
+    let config = {
+      saleConfig: saleConfig,
+      revelationConfig: revelationConfig,
+      uriConfig: uriConfig,
+    };
+    let TheLodge = await ethers.getContractFactory('TheLodge');
+    saleHandler = await TheLodge.deploy(config);
     let DummyCallerContract = await ethers.getContractFactory('DummyCallerContract');
     let dummyCallerContract = await DummyCallerContract.deploy(saleHandler.address);
     let signers = new Map();
@@ -116,12 +136,6 @@ contract('TheLodgeSaleHandler', () => {
     when('asked for token symbol', () => {
       then("It should be 'T'", async () => {
         expect(await saleHandler.symbol()).to.be.equal(SYMBOL);
-      });
-    });
-
-    when('asked for start token id', () => {
-      then('It should be 1', async () => {
-        expect(await saleHandler.getStartTokenId()).to.be.equal(1);
       });
     });
   });
@@ -170,7 +184,7 @@ contract('TheLodgeSaleHandler', () => {
     }
   });
 
-  describe('Whitelist buy with token', () => {
+  describe('Airdrop', () => {
     for (const state of Object.values(SaleState)) {
       describe(state, () => {
         generateGiven(state);
@@ -192,6 +206,87 @@ contract('TheLodgeSaleHandler', () => {
     for (const addressType of Object.values(AddressType)) {
       generateWithdrawTokenTests(addressType, () => saleTestConfig);
     }
+  });
+
+  describe('Get rarity', () => {
+    given(async () => {
+      await advanceToTime(openSaleStartTimestamp + 1);
+      await saleHandler.mint(3, { value: saleTestConfig.getNftPrice().mul(3) });
+      await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+    });
+    when('calling `getRarity for existing token', () => {
+      then('The rarity should be returned successfully', async () => {
+        // The random number is 23113, which means the normalized value for tokens 1, 2 and 3
+        // are going to be 14, 15 and 16 respectively.
+        // The rarities should be Master, Fellow and Apprentice (respectively), and there is no other group
+        // of normalized values that yield those rarities in that order.
+        expect(await saleHandler.getRarity(1)).to.be.equal(2); // 2 = Master
+        expect(await saleHandler.getRarity(2)).to.be.equal(1); // 1 = Fellow
+        expect(await saleHandler.getRarity(3)).to.be.equal(0); // 0 = Apprentice
+      });
+    });
+    when('calling `getRarity for non-existing token', () => {
+      then('Transaction should be reverted with TokenDoesNotExist', async () => {
+        await expect(saleHandler.getRarity(4)).to.be.revertedWith('TokenDoesNotExist');
+      });
+    });
+  });
+
+  describe('Token URI', () => {
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          await saleHandler.mint(1, { value: saleTestConfig.getNftPrice() });
+          expect(await saleHandler.tokenURI(1)).to.be.equal(UNREVEALED_URI);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(1)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+        await saleHandler.mint(1, { value: saleTestConfig.getNftPrice() });
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          expect(await saleHandler.tokenURI(1)).to.be.equal(UNREVEALED_URI);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(2)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+        await saleHandler.mint(3, { value: saleTestConfig.getNftPrice().mul(3) });
+        await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          // ((1 - 1) / 77) * 4 + 7373 + 0 + 1 = 7374
+          expect(await saleHandler.tokenURI(1)).to.be.equal(BASE_URI + 7374);
+          // ((2 - 1) / 77) * 27 + 4646 + 5 + 1 = 4652
+          expect(await saleHandler.tokenURI(2)).to.be.equal(BASE_URI + 4652);
+          // ((3 - 1) / 77) * 46 + 0 + 9 + 1 = 10
+          expect(await saleHandler.tokenURI(3)).to.be.equal(BASE_URI + 10);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(4)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
   });
 
   // Setters
@@ -220,10 +315,8 @@ contract('TheLodgeSaleHandler', () => {
       case SaleState.Revealed: {
         given(async () => {
           await advanceToTime(openSaleStartTimestamp + 1);
-          tokenPriceOracle.latestRoundData.returns([0, 1, 0, moment().unix() + openSaleStartTimestamp, 0]);
-          await saleHandler.setEnded(true);
+          await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
         });
-        break;
       }
       default:
         break;
