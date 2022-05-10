@@ -53,7 +53,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   /// @inheritdoc ITheLodgeSaleHandler
   function whitelistMint(bytes32[] calldata _merkleProof, uint256 quantity) external payable override {
-    _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
+    _validateWhitelistSale(quantity, _merkleProof);
     _validateEthSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
@@ -62,14 +62,14 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   function mint(uint256 quantity) external payable override {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
-    _validateCommonSale(quantity, balanceOf(msg.sender), false);
+    _validateCommonSale(quantity, false);
     _validateEthSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
 
   /// @inheritdoc ITheLodgeSaleHandler
   function whitelistBuyWithToken(bytes32[] calldata _merkleProof, uint256 quantity) external override {
-    _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
+    _validateWhitelistSale(quantity, _merkleProof);
     _processTokenSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
@@ -78,7 +78,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   function buyWithToken(uint256 quantity) external override {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
-    _validateCommonSale(quantity, balanceOf(msg.sender), false);
+    _validateCommonSale(quantity, false);
     _processTokenSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
@@ -109,7 +109,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   /// @inheritdoc ITheLodgeSaleHandler
   function setStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) external override onlyOwner {
-    if (_openSaleStartTimestamp < _saleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
+    _validateStartTimestamps(_saleStartTimestamp, _openSaleStartTimestamp);
     saleStartTimestamp = _saleStartTimestamp;
     openSaleStartTimestamp = _openSaleStartTimestamp;
   }
@@ -139,12 +139,9 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     alternativePaymentToken.safeTransferFrom(msg.sender, address(this), _requiredAmount);
   }
 
-  function _validateCommonSale(
-    uint256 quantity,
-    uint256 tokensInAddress,
-    bool failIfClaimed
-  ) internal view {
+  function _validateCommonSale(uint256 quantity, bool failIfClaimed) internal view {
     if (msg.sender != tx.origin) revert ContractsCantBuy();
+    uint256 tokensInAddress = balanceOf(msg.sender);
     if (failIfClaimed && tokensInAddress > 0) revert AddressAlreadyClaimed();
     if (tokensInAddress + quantity > maxTokensPerAddress) revert TokenLimitExceeded();
     _validateCommon(quantity);
@@ -155,14 +152,10 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     if (_currentIndex + quantity - 1 > MAX_SUPPLY) revert TokenSupplyExceeded();
   }
 
-  function _validateWhitelistSale(
-    uint256 quantity,
-    uint256 tokensInAddress,
-    bytes32[] calldata _merkleProof
-  ) internal view {
+  function _validateWhitelistSale(uint256 quantity, bytes32[] calldata _merkleProof) internal view {
     uint256 _saleStartTimestamp = saleStartTimestamp;
     if (block.timestamp < _saleStartTimestamp) revert SaleNotStarted(_saleStartTimestamp);
-    _validateCommonSale(quantity, tokensInAddress, true);
+    _validateCommonSale(quantity, true);
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
     if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidProof();
   }

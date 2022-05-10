@@ -130,11 +130,11 @@ interface ITheLodgeSaleHandler {
   /// @param _airdrops The list of airdrops that will be made.
   function airdrop(IndividualAirdrop[] calldata _airdrops) external;
 
-  /// @notice Sends the ETH stored in this contract to the provided recipient.
+  /// @notice Sends the ETH owned by this contract to the provided recipient.
   /// @param recipient The address that will receive the ETH.
   function withdrawETH(address payable recipient) external;
 
-  /// @notice Sends the tokens stored in this contract to the provided recipient.
+  /// @notice Sends the tokens owned by this contract to the provided recipient.
   /// @param recipient The address that will receive the tokens.
   function withdrawAlternativeToken(address recipient) external;
 
