@@ -8,13 +8,20 @@ import '@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol';
 import '../library/TheLodgeConfig.sol';
 
+/// @title TheLodgeRevelationHandler
+/// @notice Contract that handles all the revelation logic.
 abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
+  /// @notice The random number. Will be zero if the reveal was not made yet.
   uint256 public randomNumber;
+  /// @notice Whether the reveal was already made or not.
   bool public revealed;
 
+  /// @notice The address of the Chainlink's VRF Coordinator.
   VRFCoordinatorV2Interface public immutable coordinator;
+  /// @notice The key hash to be used for requesting random words
+  /// to the VRF Coordinator.
   bytes32 private immutable _keyHash;
-
+  /// @notice The subscription id for Chainlink's VRF.
   uint64 internal _subId;
 
   constructor(TheLodgeConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
@@ -24,6 +31,11 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     _subId = _revelationConfig.subId;
   }
 
+  /// @notice Triggers the reveal. This will send a request to the VRF Coordinator
+  /// to generate a random number.
+  /// @dev While this method can be called multiple times, only one request can be
+  /// fulfilled. It's recommended that this method is called only once, or called
+  /// again if the request failed; in order to save gas.
   function reveal() external onlyOwner {
     coordinator.requestRandomWords(
       _keyHash,
@@ -34,6 +46,11 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     );
   }
 
+  /// @notice Callback for the VRF Coordinator to return the requested random number.
+  /// @dev Once this method is called, the state of this contract will shift to "Revealed",
+  /// which means that the random number is set in stone and subsequent calls to this
+  /// method will throw an error and revert the transaction.
+  /// @param randomWords A list with a single random number returned by the VRF Coordinator.
   function fulfillRandomWords(uint256, uint256[] memory randomWords) internal override {
     if (revealed) revert AlreadyRevealed();
     randomNumber = randomWords[0];
@@ -41,7 +58,7 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
     emit Revealed(randomNumber);
   }
 
-  // Setters
+  /// @notice Sets the subscription ID.
   function setSubId(uint64 __subId) external onlyOwner {
     _subId = __subId;
   }

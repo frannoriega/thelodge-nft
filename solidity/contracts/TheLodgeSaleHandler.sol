@@ -11,25 +11,34 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '../library/TheLodgeConfig.sol';
 
-// TODO:
-// - Tests
-
+/// @title TheLodgeSaleHandler
+/// @notice Contract that handles all the sale logic.
 abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A, ITokenPriceOracle {
   using SafeERC20 for IERC20;
+  /// @notice The maximum supply of tokens.
+  uint16 public constant MAX_SUPPLY = 7777;
 
-  // Address of the $APE <-> ETH oracle.
-  AggregatorV3Interface public immutable priceOracle;
-  // Maximum delay between the current block timestamp and the timestamp from the oracle.
-  uint32 public maxDelay;
-  /// The amount of Wei required to buy an NFT token.
+  /// @notice The amount of Wei required to mint a token.
   uint256 public tokenPrice;
-  uint16 public constant MAX_SUPPLY = 7337;
-  uint16 public maxTokensPerAddress;
+  /// @notice The maximum amount of tokens an address can have.
+  /// @dev An address might have more tokens than specified here, through
+  /// an airdrop.
+  uint8 public maxTokensPerAddress;
+
+  /// @notice The address of the token price oracle.
+  AggregatorV3Interface public immutable priceOracle;
+  // @notice Maximum delay between the current block timestamp and the timestamp from the oracle.
+  uint32 public maxDelay;
+  /// @notice The token that can be used to buy TheLodge tokens.
   IERC20 public immutable alternativePaymentToken;
 
+  /// @notice The date when whitelisted addresses can to start minitng/buying tokens.
   uint256 public saleStartTimestamp;
+  /// @notice The date when the general public can start minting/buyingtokens.
   uint256 public openSaleStartTimestamp;
 
+  /// @notice The root of the Merkle Tree used to authenticate the
+  /// whitelisted addresses.
   bytes32 public merkleRoot;
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
@@ -44,14 +53,20 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     merkleRoot = _saleConfig.merkleRoot;
   }
 
-  /// Mints the given amount of tokens for a whitelisted address.
+  /// @notice Mints the given amount of tokens, if the caller is a whitelisted address.
+  /// Whiteisted addresses can only make one call to either whitelistedMint
+  /// or whitelistedBuyWithToken methods. After that, they have to wait
+  /// until the open sale starts and call mint/buyWithToken as other users.
+  /// @param _merkleProof The proof that the caller is a whitelisted address.
+  /// @param quantity The amount of tokens to buy.
   function whitelistMint(bytes32[] calldata _merkleProof, uint256 quantity) external payable {
     _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
     _validateEthSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
 
-  /// Mints the given amount of tokens.
+  /// @notice Mints the given amount of tokens.
+  /// @param quantity The amount of tokens to mint.
   function mint(uint256 quantity) external payable {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
@@ -60,13 +75,20 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     _mint(msg.sender, quantity, '', false);
   }
 
+  /// @notice Buys the given amount of tokens, if the caller is a whitelisted address.
+  /// Whiteisted addresses can only make one call to either whitelistedMint
+  /// or whitelistedBuyWithToken methods. After that, they have to wait
+  /// until the open sale starts and call mint/buyWithToken as other users.
+  /// @param _merkleProof The proof that the caller is a whitelisted address.
+  /// @param quantity The amount of tokens to buy.
   function whitelistBuyWithToken(bytes32[] calldata _merkleProof, uint256 quantity) external {
     _validateWhitelistSale(quantity, balanceOf(msg.sender), _merkleProof);
     _processTokenSale(quantity);
     _mint(msg.sender, quantity, '', false);
   }
 
-  /// Mints the given amount of tokens.
+  /// @notice Buys the given amount of tokens.
+  /// @param quantity The amount of tokens to buy.
   function buyWithToken(uint256 quantity) external {
     uint256 _openSaleStartTimestamp = openSaleStartTimestamp;
     if (block.timestamp < _openSaleStartTimestamp) revert OpenSaleNotStarted(_openSaleStartTimestamp);
@@ -75,6 +97,8 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     _mint(msg.sender, quantity, '', false);
   }
 
+  /// @notice Performs a set of airdrops.
+  /// @param _airdrops The list of airdrops that will be made.
   function airdrop(IndividualAirdrop[] calldata _airdrops) external onlyOwner {
     for (uint256 i; i < _airdrops.length; i++) {
       IndividualAirdrop memory _airdrop = _airdrops[i];
@@ -106,7 +130,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   function _validateCommon(uint256 quantity) internal view {
     if (_hasEnded()) revert SaleEnded();
-    if (_currentIndex + quantity > MAX_SUPPLY) revert TokenSupplyExceeded();
+    if (_currentIndex + quantity - 1 > MAX_SUPPLY) revert TokenSupplyExceeded();
   }
 
   function _validateWhitelistSale(
@@ -136,18 +160,24 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     return 1;
   }
 
+  /// @dev This function will determine whether the sale has ended (for all users).
+  /// The returned value should ideally be false and then shift to true, and not change again.
+  /// @return Whether the sale has ended or not.
   function _hasEnded() internal view virtual returns (bool);
 
-  // Withdraw logic
+  /// @notice Sends the ETH stored in this contract to the provided recipient.
+  /// @param recipient The address that will receive the ETH.
   function withdrawETH(address payable recipient) external onlyOwner {
     recipient.transfer(address(this).balance);
   }
 
+  /// @notice Sends the tokens stored in this contract to the provided recipient.
+  /// @param recipient The address that will receive the tokens.
   function withdrawAlternativeToken(address recipient) external onlyOwner {
     alternativePaymentToken.safeTransfer(recipient, alternativePaymentToken.balanceOf(address(this)));
   }
 
-  // Setters
+  /// @notice Sets the maximum delay allowed between the current block timestamp and the timestamp from the oracle.
   function setMaxDelay(uint32 _maxDelay) external onlyOwner {
     maxDelay = _maxDelay;
   }
@@ -158,15 +188,18 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     openSaleStartTimestamp = _openSaleStartTimestamp;
   }
 
+  /// @notice Sets the Merkle Tree root.
   function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
     merkleRoot = _merkleRoot;
   }
 
+  /// @notice Sets the token price.
   function setTokenPrice(uint256 _tokenPrice) external onlyOwner {
     tokenPrice = _tokenPrice;
   }
 
-  function setMaxTokensPerAddress(uint16 _maxTokensPerAddress) external onlyOwner {
+  /// @notice Sets the maximum amount of tokens per address.
+  function setMaxTokensPerAddress(uint8 _maxTokensPerAddress) external onlyOwner {
     maxTokensPerAddress = _maxTokensPerAddress;
   }
 }
