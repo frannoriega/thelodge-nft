@@ -40,7 +40,7 @@ contract('TheLodge', () => {
   const SYMBOL: string = 'T';
   const BASE_URI: string = 'baseUri/';
   const UNREVEALED_URI: string = 'unrevealedUri';
-  const RANDOM_NUMBER: number = 8709;
+  const RANDOM_NUMBER: number = 23113;
 
   let snapshotId: string;
 
@@ -216,8 +216,8 @@ contract('TheLodge', () => {
     });
     when('calling `getRarity for existing token', () => {
       then('The rarity should be returned successfully', async () => {
-        // The random number is 8709, which means the normalized value for tokens 1, 2 and 3
-        // are going to be 10, 11 and 12 respectively.
+        // The random number is 23113, which means the normalized value for tokens 1, 2 and 3
+        // are going to be 14, 15 and 16 respectively.
         // The rarities should be Master, Fellow and Apprentice (respectively), and there is no other group
         // of normalized values that yield those rarities in that order.
         expect(await saleHandler.getRarity(1)).to.be.equal(2); // 2 = Master
@@ -273,12 +273,12 @@ contract('TheLodge', () => {
       });
       when('calling `tokenURI` for existing token', () => {
         then('The rarity should be returned successfully', async () => {
-          // (1 - 1) / 29 * 3 + 6578 + 1 = 6580
-          expect(await saleHandler.tokenURI(1)).to.be.equal(BASE_URI + 6580);
-          // (2 - 1) / 29 * 9 + 4301 + 4 = 4306
-          expect(await saleHandler.tokenURI(2)).to.be.equal(BASE_URI + 4306);
-          // (3 - 1) / 29 * 17 + 0 + 5 = 6
-          expect(await saleHandler.tokenURI(3)).to.be.equal(BASE_URI + 6);
+          // ((1 - 1) / 77) * 4 + 7373 + 0 + 1 = 7374
+          expect(await saleHandler.tokenURI(1)).to.be.equal(BASE_URI + 7374);
+          // ((2 - 1) / 77) * 27 + 4646 + 5 + 1 = 4652
+          expect(await saleHandler.tokenURI(2)).to.be.equal(BASE_URI + 4652);
+          // ((3 - 1) / 77) * 46 + 0 + 9 + 1 = 10
+          expect(await saleHandler.tokenURI(3)).to.be.equal(BASE_URI + 10);
         });
       });
       when('calling `tokenURI` for non-existing token', () => {
