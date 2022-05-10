@@ -118,6 +118,12 @@ contract('TheLodgeSaleHandler', () => {
         expect(await saleHandler.symbol()).to.be.equal(SYMBOL);
       });
     });
+
+    when('asked for start token id', () => {
+      then('It should be 1', async () => {
+        expect(await saleHandler.getStartTokenId()).to.be.equal(1);
+      });
+    });
   });
 
   describe('Mint', () => {

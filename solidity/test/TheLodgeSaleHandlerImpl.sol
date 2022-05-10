@@ -9,6 +9,10 @@ contract TheLodgeSaleHandlerImpl is TheLodgeSaleHandler {
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) TheLodgeSaleHandler(_saleConfig) {}
 
+  function getStartTokenId() external pure returns (uint256) {
+    return _startTokenId();
+  }
+
   function setEnded(bool _ended) external {
     ended = _ended;
   }

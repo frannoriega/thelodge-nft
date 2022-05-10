@@ -731,6 +731,101 @@ export function generateBuyWithTokenTests(state: SaleState, addressType: Address
       }
     }
   });
+  when(addressType + ' calls buyWithToken but oracle gives wrong answer', () => {
+    switch (state) {
+      case SaleState.NotStarted:
+      case SaleState.SaleStarted: {
+        then('Transaction should be reverted with OpenSaleNotStarted error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config.getTokenPriceOracle().latestRoundData.returns([0, -1, 0, moment().unix() + config.getSaleStartTimestamp(), 0]);
+          for (const signerAddress of signerAddresses) {
+            await expect(config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress())).to.be.revertedWith(
+              'OpenSaleNotStarted(' + config.getOpenSaleStartTimestamp() + ')'
+            );
+            expect(config.getToken().transferFrom).to.have.not.been.called;
+          }
+        });
+        break;
+      }
+      case SaleState.OpenSaleStarted: {
+        then('Transaction should be reverted with InvalidAnswer error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config.getTokenPriceOracle().latestRoundData.returns([0, -1, 0, moment().unix() + config.getSaleStartTimestamp(), 0]);
+          for (const signerAddress of signerAddresses) {
+            await expect(config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress())).to.be.revertedWith(
+              'InvalidAnswer'
+            );
+          }
+        });
+        break;
+      }
+      case SaleState.Revealed: {
+        then('Transaction should be reverted with SaleEnded error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config.getTokenPriceOracle().latestRoundData.returns([0, -1, 0, moment().unix() + config.getSaleStartTimestamp(), 0]);
+          for (const signerAddress of signerAddresses) {
+            await expect(config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress())).to.be.revertedWith(
+              'SaleEnded'
+            );
+          }
+        });
+        break;
+      }
+    }
+  });
+  when(addressType + ' calls buyWithToken but oracle gives outdated answer', () => {
+    switch (state) {
+      case SaleState.NotStarted:
+      case SaleState.SaleStarted: {
+        then('Transaction should be reverted with OpenSaleNotStarted error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config
+            .getTokenPriceOracle()
+            .latestRoundData.returns([0, 1, 0, moment().unix() + config.getSaleStartTimestamp() - config.getMaxDelay() - 1, 0]);
+          for (const signerAddress of signerAddresses) {
+            await expect(config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress())).to.be.revertedWith(
+              'OpenSaleNotStarted(' + config.getOpenSaleStartTimestamp() + ')'
+            );
+            expect(config.getToken().transferFrom).to.have.not.been.called;
+          }
+        });
+        break;
+      }
+      case SaleState.SaleStarted:
+      case SaleState.OpenSaleStarted: {
+        then('Transaction should be reverted with OutdatedAnswer error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config
+            .getTokenPriceOracle()
+            .latestRoundData.returns([0, 1, 0, moment().unix() + config.getSaleStartTimestamp() - config.getMaxDelay() - 1, 0]);
+          for (const signerAddress of signerAddresses) {
+            expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(0);
+            await config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress());
+            expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(config.getMaxTokensPerAddress());
+          }
+        });
+        break;
+      }
+      case SaleState.Revealed: {
+        then('Transaction should be reverted with SaleEnded error', async () => {
+          let config = configProvider();
+          let signerAddresses = config.getSigners().get(addressType)!;
+          config.getTokenPriceOracle().latestRoundData.returns([0, -1, 0, moment().unix() + config.getSaleStartTimestamp(), 0]);
+          for (const signerAddress of signerAddresses) {
+            await expect(config.getSaleHandler().connect(signerAddress).buyWithToken(config.getMaxTokensPerAddress())).to.be.revertedWith(
+              'SaleEnded'
+            );
+          }
+        });
+        break;
+      }
+    }
+  });
 }
 
 export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType: AddressType, configProvider: () => SaleTestConfig) {
@@ -760,7 +855,7 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
       }
     }
   });
-  when(addressType + ' calls buyWithToken', () => {
+  when(addressType + ' calls whitelistBuyWithToken', () => {
     switch (state) {
       case SaleState.NotStarted: {
         then('Transaction should be reverted with SaleNotStarted error', async () => {
@@ -785,10 +880,7 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
             for (const signerAddress of signerAddresses) {
               let proof = config.getMerkleTree().getHexProof(keccak256(signerAddress.address));
               expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(0);
-              await config
-                .getSaleHandler()
-                .connect(signerAddress)
-                .whitelistMint(proof, config.getMaxTokensPerAddress(), { value: config.getNftPrice().mul(config.getMaxTokensPerAddress()) });
+              await config.getSaleHandler().connect(signerAddress).whitelistBuyWithToken(proof, config.getMaxTokensPerAddress());
               expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(config.getMaxTokensPerAddress());
             }
           });
@@ -821,7 +913,7 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
       }
     }
   });
-  when(addressType + ' calls buyWithToken but oracle gives wrong answer', () => {
+  when(addressType + ' calls whitelistBuyWithToken but oracle gives wrong answer', () => {
     switch (state) {
       case SaleState.NotStarted: {
         then('Transaction should be reverted with SaleNotStarted error', async () => {
@@ -847,12 +939,9 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
             config.getTokenPriceOracle().latestRoundData.returns([0, -1, 0, moment().unix() + config.getSaleStartTimestamp(), 0]);
             for (const signerAddress of signerAddresses) {
               let proof = config.getMerkleTree().getHexProof(keccak256(signerAddress.address));
-              expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(0);
-              await config
-                .getSaleHandler()
-                .connect(signerAddress)
-                .whitelistMint(proof, config.getMaxTokensPerAddress(), { value: config.getNftPrice().mul(config.getMaxTokensPerAddress()) });
-              expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(config.getMaxTokensPerAddress());
+              await expect(
+                config.getSaleHandler().connect(signerAddress).whitelistBuyWithToken(proof, config.getMaxTokensPerAddress())
+              ).to.be.revertedWith('InvalidAnswer');
             }
           });
         } else {
@@ -886,7 +975,7 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
       }
     }
   });
-  when(addressType + ' calls buyWithToken but oracle gives outdated answer', () => {
+  when(addressType + ' calls whitelistBuyWithToken but oracle gives outdated answer', () => {
     switch (state) {
       case SaleState.NotStarted: {
         then('Transaction should be reverted with SaleNotStarted error', async () => {
@@ -917,10 +1006,7 @@ export function generateWhitelistBuyWithTokenTests(state: SaleState, addressType
             for (const signerAddress of signerAddresses) {
               let proof = config.getMerkleTree().getHexProof(keccak256(signerAddress.address));
               expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(0);
-              await config
-                .getSaleHandler()
-                .connect(signerAddress)
-                .whitelistMint(proof, config.getMaxTokensPerAddress(), { value: config.getNftPrice().mul(config.getMaxTokensPerAddress()) });
+              await config.getSaleHandler().connect(signerAddress).whitelistBuyWithToken(proof, config.getMaxTokensPerAddress());
               expect(await config.getSaleHandler().balanceOf(signerAddress.address)).to.equal(config.getMaxTokensPerAddress());
             }
           });

@@ -132,6 +132,10 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     if (_saleStartTimestamp > _openSaleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
   }
 
+  function _startTokenId() internal pure override returns (uint256) {
+    return 1;
+  }
+
   function _hasEnded() internal view virtual returns (bool);
 
   // Withdraw logic

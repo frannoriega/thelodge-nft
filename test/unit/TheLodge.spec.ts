@@ -33,13 +33,14 @@ contract('TheLodge', () => {
   let vrfCoordinator: FakeContract<VRFCoordinatorV2Interface>;
   let saleStartTimestamp: number;
   let openSaleStartTimestamp: number;
+  let nftPrice: BigNumber;
   let saleTestConfig: SaleTestConfig;
 
   const NAME: string = 'Test';
   const SYMBOL: string = 'T';
-  const BASE_URI: string = 'baseUri';
+  const BASE_URI: string = 'baseUri/';
   const UNREVEALED_URI: string = 'unrevealedUri';
-  const RANDOM_NUMBER: number = 69;
+  const RANDOM_NUMBER: number = 8709;
 
   let snapshotId: string;
 
@@ -67,7 +68,7 @@ contract('TheLodge', () => {
     let now = moment().unix();
     saleStartTimestamp = now + ONE_YEAR_IN_SECONDS;
     openSaleStartTimestamp = saleStartTimestamp + ONE_YEAR_IN_SECONDS;
-    let nftPrice = BigNumber.from(10).pow(18);
+    nftPrice = BigNumber.from(10).pow(18);
     let maxTokensPerAddress = 3;
     let maxDelay = moment.duration(24, 'hours').asSeconds();
     let saleConfig = {
@@ -205,6 +206,87 @@ contract('TheLodge', () => {
     for (const addressType of Object.values(AddressType)) {
       generateWithdrawTokenTests(addressType, () => saleTestConfig);
     }
+  });
+
+  describe('Get rarity', () => {
+    given(async () => {
+      await advanceToTime(openSaleStartTimestamp + 1);
+      await saleHandler.mint(3, { value: saleTestConfig.getNftPrice().mul(3) });
+      await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+    });
+    when('calling `getRarity for existing token', () => {
+      then('The rarity should be returned successfully', async () => {
+        // The random number is 8709, which means the normalized value for tokens 1, 2 and 3
+        // are going to be 10, 11 and 12 respectively.
+        // The rarities should be Master, Fellow and Apprentice (respectively), and there is no other group
+        // of normalized values that yield those rarities in that order.
+        expect(await saleHandler.getRarity(1)).to.be.equal(2); // 2 = Master
+        expect(await saleHandler.getRarity(2)).to.be.equal(1); // 1 = Fellow
+        expect(await saleHandler.getRarity(3)).to.be.equal(0); // 0 = Apprentice
+      });
+    });
+    when('calling `getRarity for non-existing token', () => {
+      then('Transaction should be reverted with TokenDoesNotExist', async () => {
+        await expect(saleHandler.getRarity(4)).to.be.revertedWith('TokenDoesNotExist');
+      });
+    });
+  });
+
+  describe('Token URI', () => {
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          await saleHandler.mint(1, { value: saleTestConfig.getNftPrice() });
+          expect(await saleHandler.tokenURI(1)).to.be.equal(UNREVEALED_URI);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(1)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+        await saleHandler.mint(1, { value: saleTestConfig.getNftPrice() });
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          expect(await saleHandler.tokenURI(1)).to.be.equal(UNREVEALED_URI);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(2)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
+    describe('Reveal not called', () => {
+      given(async () => {
+        await advanceToTime(openSaleStartTimestamp + 1);
+        await saleHandler.mint(3, { value: saleTestConfig.getNftPrice().mul(3) });
+        await saleHandler.connect(vrfCoordinator.wallet).rawFulfillRandomWords(0, [RANDOM_NUMBER]);
+      });
+      when('calling `tokenURI` for existing token', () => {
+        then('The rarity should be returned successfully', async () => {
+          // (1 - 1) / 29 * 3 + 6578 + 1 = 6580
+          expect(await saleHandler.tokenURI(1)).to.be.equal(BASE_URI + 6580);
+          // (2 - 1) / 29 * 9 + 4301 + 4 = 4306
+          expect(await saleHandler.tokenURI(2)).to.be.equal(BASE_URI + 4306);
+          // (3 - 1) / 29 * 17 + 0 + 5 = 6
+          expect(await saleHandler.tokenURI(3)).to.be.equal(BASE_URI + 6);
+        });
+      });
+      when('calling `tokenURI` for non-existing token', () => {
+        then('Transaction should be reverted with TokenDoesNotExist', async () => {
+          await expect(saleHandler.tokenURI(4)).to.be.revertedWith('TokenDoesNotExist');
+        });
+      });
+    });
   });
 
   // Setters
