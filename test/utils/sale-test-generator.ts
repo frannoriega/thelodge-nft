@@ -1271,41 +1271,18 @@ export function generateSaleSetterTests(addressType: AddressType, configProvider
       });
     }
   });
-  when(addressType + ' calls setSaleStartDate', () => {
+  when(addressType + ' calls setStartTimestamps', () => {
     if (addressType == AddressType.Owner) {
       then('Address should set the sale start date', async () => {
         let config = configProvider();
         let signerAddresses = config.getSigners().get(addressType)!;
         let newSaleStartTimestamp = config.getSaleStartTimestamp() + 10;
-        for (const signerAddress of signerAddresses) {
-          expect(await config.getSaleHandler().saleStartTimestamp()).to.be.equal(config.getSaleStartTimestamp());
-          await config.getSaleHandler().connect(signerAddress).setSaleStartTimestamp(newSaleStartTimestamp);
-          expect(await config.getSaleHandler().saleStartTimestamp()).to.be.equal(newSaleStartTimestamp);
-        }
-      });
-    } else {
-      then('Transaction should be reverted with Ownable error', async () => {
-        let config = configProvider();
-        let signerAddresses = config.getSigners().get(addressType)!;
-        let newSaleStartTimestamp = config.getSaleStartTimestamp() + 10;
-        for (const signerAddress of signerAddresses) {
-          await expect(config.getSaleHandler().connect(signerAddress).setSaleStartTimestamp(newSaleStartTimestamp)).to.be.revertedWith(
-            'Ownable: caller is not the owner'
-          );
-        }
-      });
-    }
-  });
-
-  when(addressType + ' calls setOpenSaleStartDate', () => {
-    if (addressType == AddressType.Owner) {
-      then('Address should set the open sale start date', async () => {
-        let config = configProvider();
-        let signerAddresses = config.getSigners().get(addressType)!;
         let newOpenSaleStartTimestamp = config.getOpenSaleStartTimestamp() + 10;
         for (const signerAddress of signerAddresses) {
+          expect(await config.getSaleHandler().saleStartTimestamp()).to.be.equal(config.getSaleStartTimestamp());
           expect(await config.getSaleHandler().openSaleStartTimestamp()).to.be.equal(config.getOpenSaleStartTimestamp());
-          await config.getSaleHandler().connect(signerAddress).setOpenSaleStartTimestamp(newOpenSaleStartTimestamp);
+          await config.getSaleHandler().connect(signerAddress).setStartTimestamps(newSaleStartTimestamp, newOpenSaleStartTimestamp);
+          expect(await config.getSaleHandler().saleStartTimestamp()).to.be.equal(newSaleStartTimestamp);
           expect(await config.getSaleHandler().openSaleStartTimestamp()).to.be.equal(newOpenSaleStartTimestamp);
         }
       });
@@ -1313,11 +1290,42 @@ export function generateSaleSetterTests(addressType: AddressType, configProvider
       then('Transaction should be reverted with Ownable error', async () => {
         let config = configProvider();
         let signerAddresses = config.getSigners().get(addressType)!;
+        let newSaleStartTimestamp = config.getSaleStartTimestamp() + 10;
         let newOpenSaleStartTimestamp = config.getOpenSaleStartTimestamp() + 10;
         for (const signerAddress of signerAddresses) {
-          await expect(config.getSaleHandler().connect(signerAddress).setOpenSaleStartTimestamp(newOpenSaleStartTimestamp)).to.be.revertedWith(
-            'Ownable: caller is not the owner'
-          );
+          await expect(
+            config.getSaleHandler().connect(signerAddress).setStartTimestamps(newSaleStartTimestamp, newOpenSaleStartTimestamp)
+          ).to.be.revertedWith('Ownable: caller is not the owner');
+        }
+      });
+    }
+  });
+
+  when(addressType + ' calls setStartTimestamps with invalid dates', () => {
+    if (addressType == AddressType.Owner) {
+      then('Address should set the sale start date', async () => {
+        let config = configProvider();
+        let signerAddresses = config.getSigners().get(addressType)!;
+        let newSaleStartTimestamp = config.getSaleStartTimestamp() + 10;
+        let newOpenSaleStartTimestamp = config.getOpenSaleStartTimestamp() + 10;
+        for (const signerAddress of signerAddresses) {
+          expect(await config.getSaleHandler().saleStartTimestamp()).to.be.equal(config.getSaleStartTimestamp());
+          expect(await config.getSaleHandler().openSaleStartTimestamp()).to.be.equal(config.getOpenSaleStartTimestamp());
+          await expect(
+            config.getSaleHandler().connect(signerAddress).setStartTimestamps(newOpenSaleStartTimestamp, newSaleStartTimestamp)
+          ).to.be.revertedWith('OpenSaleBeforeWhitelistSale');
+        }
+      });
+    } else {
+      then('Transaction should be reverted with Ownable error', async () => {
+        let config = configProvider();
+        let signerAddresses = config.getSigners().get(addressType)!;
+        let newSaleStartTimestamp = config.getSaleStartTimestamp() + 10;
+        let newOpenSaleStartTimestamp = config.getOpenSaleStartTimestamp() + 10;
+        for (const signerAddress of signerAddresses) {
+          await expect(
+            config.getSaleHandler().connect(signerAddress).setStartTimestamps(newSaleStartTimestamp, newOpenSaleStartTimestamp)
+          ).to.be.revertedWith('Ownable: caller is not the owner');
         }
       });
     }

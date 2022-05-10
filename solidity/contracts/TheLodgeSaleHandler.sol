@@ -152,11 +152,9 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     maxDelay = _maxDelay;
   }
 
-  function setSaleStartTimestamp(uint256 _saleStartTimestamp) external onlyOwner {
+  function setStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) external onlyOwner {
+    if (_openSaleStartTimestamp < _saleStartTimestamp) revert OpenSaleBeforeWhitelistSale();
     saleStartTimestamp = _saleStartTimestamp;
-  }
-
-  function setOpenSaleStartTimestamp(uint256 _openSaleStartTimestamp) external onlyOwner {
     openSaleStartTimestamp = _openSaleStartTimestamp;
   }
 
