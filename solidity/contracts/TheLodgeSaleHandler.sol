@@ -149,7 +149,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   function _validateCommon(uint256 quantity) internal view {
     if (_hasEnded()) revert SaleEnded();
-    if (_currentIndex + quantity - 1 > MAX_SUPPLY) revert TokenSupplyExceeded();
+    if (totalSupply() + quantity > MAX_SUPPLY) revert TokenSupplyExceeded();
   }
 
   function _validateWhitelistSale(uint256 quantity, bytes32[] calldata _merkleProof) internal view {
