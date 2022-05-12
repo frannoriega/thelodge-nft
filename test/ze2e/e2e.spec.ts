@@ -18,7 +18,7 @@ const APE_WHALE = '0x1633b453c3ca5a244c66f4418ff5120282370053';
 const UNREVEALED_URI = 'https://unrevealed.uri';
 const BASE_URI = 'https://base.uri';
 
-describe('E2E test @skip-on-coverage', () => {
+describe('E2E test', () => {
   const initialETHBalance: Record<string, BigNumber> = {};
   const initialAPEBalance: Record<string, BigNumber> = {};
   let whitelistedETH: SignerWithAddress,
