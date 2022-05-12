@@ -5,9 +5,9 @@ import { evm, wallet } from '@utils';
 import { expect } from 'chai';
 import { getNodeUrl } from 'utils/env';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { AggregatorV2V3Interface, IERC20Metadata, TheLodge } from '@typechained';
+import { AggregatorV3Interface, IERC20Metadata, TheLodge } from '@typechained';
 import { abi as IERC20_METADATA_ABI } from '@openzeppelin/contracts/build/contracts/IERC20Metadata.json';
-import AGGREGATOR_V2V3_ABI from '@chainlink/contracts/abi/v0.8/AggregatorV2V3Interface.json';
+import AGGREGATOR_V3_ABI from '@chainlink/contracts/abi/v0.8/AggregatorV3Interface.json';
 import { MerkleTree } from 'merkletreejs';
 import { keccak256 } from 'ethers/lib/utils';
 
@@ -45,7 +45,7 @@ describe('E2E test @skip-on-coverage', () => {
     await deployments.fixture('TheLodge', { keepExistingDeployments: false });
     theLodge = await ethers.getContract('TheLodge');
     APE = await ethers.getContractAt(IERC20_METADATA_ABI, await theLodge.alternativePaymentToken());
-    const priceOracle: AggregatorV2V3Interface = await ethers.getContractAt(AGGREGATOR_V2V3_ABI, await theLodge.priceOracle());
+    const priceOracle: AggregatorV3Interface = await ethers.getContractAt(AGGREGATOR_V3_ABI, await theLodge.priceOracle());
 
     // Impersonations
     apeWhale = await wallet.impersonate(APE_WHALE);
@@ -59,7 +59,8 @@ describe('E2E test @skip-on-coverage', () => {
     await theLodge.setStartTimestamps(BLOCK_TIMESTAMP, AN_HOUR_LATER);
     await theLodge.setMaxDelay(BigNumber.from(2).pow(32).sub(1));
     mintPriceETH = await theLodge.tokenPrice();
-    mintPriceAPE = mintPriceETH.mul(BigNumber.from(10).pow(await APE.decimals())).div(await priceOracle.latestAnswer());
+    const { answer } = await priceOracle.latestRoundData();
+    mintPriceAPE = mintPriceETH.mul(BigNumber.from(10).pow(await APE.decimals())).div(answer);
 
     // Give tokens to users
     await APE.connect(apeWhale).transfer(whitelistedAPE.address, mintPriceAPE.mul(3));
