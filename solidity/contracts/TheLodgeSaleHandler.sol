@@ -90,6 +90,13 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   }
 
   /// @inheritdoc ITheLodgeSaleHandler
+  function burn(uint256[] calldata tokenIds) external {
+    for (uint256 i; i < tokenIds.length; i++) {
+      _burn(tokenIds[i], true);
+    }
+  }
+
+  /// @inheritdoc ITheLodgeSaleHandler
   function withdrawETH(address payable recipient) external override onlyOwner {
     recipient.transfer(address(this).balance);
   }

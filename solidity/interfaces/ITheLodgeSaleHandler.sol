@@ -130,6 +130,11 @@ interface ITheLodgeSaleHandler {
   /// @param _airdrops The list of airdrops that will be made.
   function airdrop(IndividualAirdrop[] calldata _airdrops) external;
 
+  /// @notice Allows the caller to burn specific tokens
+  /// @dev The caller must own or have been given access to the tokens. Otherwise, the call will revert
+  /// @param tokenIds The ids of the tokens to burn
+  function burn(uint256[] calldata tokenIds) external;
+
   /// @notice Sends the ETH owned by this contract to the provided recipient.
   /// @param recipient The address that will receive the ETH.
   function withdrawETH(address payable recipient) external;

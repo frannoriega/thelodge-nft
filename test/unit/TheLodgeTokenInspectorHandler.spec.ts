@@ -1,7 +1,6 @@
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { TheLodgeTokenInspectorHandlerImpl, TheLodgeTokenInspectorHandlerImpl__factory } from '@typechained';
-import { BigNumber } from 'ethers';
 
 describe('TheLodgeTokenInspectorHandler', () => {
   const MAX_SUPPLY = 7777;

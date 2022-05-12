@@ -1,10 +1,10 @@
 import { ethers } from 'hardhat';
 import { MerkleTree } from 'merkletreejs';
 import chai, { expect } from 'chai';
-import { BigNumber, Contract } from 'ethers';
+import { BigNumber } from 'ethers';
 import { advanceToTime, snapshot } from '@utils/evm';
 import { FakeContract, smock } from '@defi-wonderland/smock';
-import { AggregatorV3Interface, IERC20Metadata } from '@typechained';
+import { AggregatorV3Interface, IERC20Metadata, TheLodgeSaleHandlerImpl, TheLodgeSaleHandlerImpl__factory } from '@typechained';
 import { contract, given, then, when } from '@test-utils/bdd';
 import moment from 'moment';
 import { keccak256 } from 'ethers/lib/utils';
@@ -21,13 +21,15 @@ import {
   generateWithdrawTokenTests,
   generateSaleSetterTests,
 } from '@utils/sale-test-generator';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
 
 chai.use(smock.matchers);
 
 const ONE_YEAR_IN_SECONDS = 31556952;
 
 contract('TheLodgeSaleHandler', () => {
-  let saleHandler: Contract;
+  let saleHandler: TheLodgeSaleHandlerImpl;
   let tokenPriceOracle: FakeContract<AggregatorV3Interface>;
   let token: FakeContract<IERC20Metadata>;
   let saleStartTimestamp: number;
@@ -70,7 +72,7 @@ contract('TheLodgeSaleHandler', () => {
       openSaleStartTimestamp: openSaleStartTimestamp,
       merkleRoot: merkleTree.getHexRoot(),
     };
-    let TheLodgeSaleHandlerImpl = await ethers.getContractFactory('TheLodgeSaleHandlerImpl');
+    let TheLodgeSaleHandlerImpl: TheLodgeSaleHandlerImpl__factory = await ethers.getContractFactory('TheLodgeSaleHandlerImpl');
     saleHandler = await TheLodgeSaleHandlerImpl.deploy(config);
     await saleHandler.setEnded(false);
     let DummyCallerContract = await ethers.getContractFactory('DummyCallerContract');
@@ -179,6 +181,44 @@ contract('TheLodgeSaleHandler', () => {
         }
       });
     }
+  });
+
+  describe('Burn', () => {
+    let ownerToken1: SignerWithAddress, ownerToken2: SignerWithAddress;
+    given(async () => {
+      [ownerToken1, ownerToken2] = saleTestConfig.getSigners().get(AddressType.Whitelisted)!;
+      await advanceToTime(openSaleStartTimestamp + 1);
+      await saleHandler.connect(ownerToken1).mint(1, { value: saleTestConfig.getNftPrice() });
+      await saleHandler.connect(ownerToken2).mint(1, { value: saleTestConfig.getNftPrice() });
+    });
+
+    when('user owner calls burn', () => {
+      given(async () => {
+        await saleHandler.connect(ownerToken1).burn([1]);
+      });
+
+      then('supply is reduced', async () => {
+        expect(await saleHandler.totalSupply()).to.equal(1);
+      });
+
+      then('balance is reduced', async () => {
+        expect(await saleHandler.balanceOf(ownerToken1.address)).to.equal(0);
+      });
+
+      then('token is burned', async () => {
+        await expect(saleHandler.ownerOf(1)).to.have.revertedWith('OwnerQueryForNonexistentToken');
+      });
+    });
+
+    when('user non-owner calls burn', () => {
+      let tx: Promise<TransactionResponse>;
+      given(() => {
+        tx = saleHandler.connect(ownerToken1).burn([2]);
+      });
+      then('tx reverts', async () => {
+        await expect(tx).to.have.revertedWith('TransferCallerNotOwnerNorApproved');
+      });
+    });
   });
 
   // Withdraw tests
