@@ -1,6 +1,6 @@
 import { FakeContract, smock } from '@defi-wonderland/smock';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { AggregatorV3Interface, IERC20 } from '@typechained';
+import { AggregatorV3Interface, IERC20, IERC20Metadata } from '@typechained';
 import chai, { expect } from 'chai';
 import { BigNumber, Contract } from 'ethers';
 import { ethers } from 'hardhat';
@@ -29,7 +29,7 @@ export enum AddressType {
 export class SaleTestConfig {
   private saleHandler: Contract;
   private tokenPriceOracle: FakeContract<AggregatorV3Interface>;
-  private token: FakeContract<IERC20>;
+  private token: FakeContract<IERC20Metadata>;
   private merkleTree: MerkleTree;
   private saleStartTimestamp: number;
   private openSaleStartTimestamp: number;
@@ -43,7 +43,7 @@ export class SaleTestConfig {
   constructor(
     saleHandler: Contract,
     tokenPriceOracle: FakeContract<AggregatorV3Interface>,
-    token: FakeContract<IERC20>,
+    token: FakeContract<IERC20Metadata>,
     merkleTree: MerkleTree,
     saleStartTimestamp: number,
     openSaleStartTimestamp: number,
@@ -76,7 +76,7 @@ export class SaleTestConfig {
     return this.tokenPriceOracle;
   }
 
-  getToken(): FakeContract<IERC20> {
+  getToken(): FakeContract<IERC20Metadata> {
     return this.token;
   }
 

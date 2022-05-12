@@ -4,7 +4,7 @@ import chai, { expect } from 'chai';
 import { BigNumber, Contract } from 'ethers';
 import { advanceToTime, snapshot } from '@utils/evm';
 import { FakeContract, smock } from '@defi-wonderland/smock';
-import { AggregatorV3Interface, IERC20 } from '@typechained';
+import { AggregatorV3Interface, IERC20Metadata } from '@typechained';
 import { contract, given, then, when } from '@test-utils/bdd';
 import moment from 'moment';
 import { keccak256 } from 'ethers/lib/utils';
@@ -29,7 +29,7 @@ const ONE_YEAR_IN_SECONDS = 31556952;
 contract('TheLodgeSaleHandler', () => {
   let saleHandler: Contract;
   let tokenPriceOracle: FakeContract<AggregatorV3Interface>;
-  let token: FakeContract<IERC20>;
+  let token: FakeContract<IERC20Metadata>;
   let saleStartTimestamp: number;
   let openSaleStartTimestamp: number;
   let saleTestConfig: SaleTestConfig;
@@ -43,14 +43,13 @@ contract('TheLodgeSaleHandler', () => {
     const accounts = await ethers.getSigners();
     let owner = accounts[0];
     let tokenPriceOracleAddress = accounts[1];
-    let tokenAddress = accounts[2];
     let whitelisted = accounts.slice(3, 10);
     let nonWhitelisted = accounts.slice(11, 15);
     let otherAddress = accounts[16];
     tokenPriceOracle = await smock.fake('@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface', {
       address: tokenPriceOracleAddress.address,
     });
-    token = await smock.fake('IERC20', { address: tokenAddress.address });
+    token = await smock.fake('IERC20Metadata');
     const leaves = whitelisted.map((account) => keccak256(account.address));
     let merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
     let now = moment().unix();
@@ -100,6 +99,7 @@ contract('TheLodgeSaleHandler', () => {
   beforeEach(async function () {
     await snapshot.revert(snapshotId);
     token.transferFrom.returns(true);
+    token.decimals.returns(10);
   });
 
   afterEach(async function () {

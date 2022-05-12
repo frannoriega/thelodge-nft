@@ -12,15 +12,14 @@ import '../library/TheLodgeConfig.sol';
 /// @notice Contract that handles all the revelation logic.
 abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
   /// @inheritdoc ITheLodgeRevelationHandler
-  uint256 public randomNumber;
-  /// @inheritdoc ITheLodgeRevelationHandler
-  bool public revealed;
-
-  /// @inheritdoc ITheLodgeRevelationHandler
   VRFCoordinatorV2Interface public immutable coordinator;
   /// @notice The key hash to be used for requesting random words
   /// to the VRF Coordinator.
   bytes32 private immutable _keyHash;
+  /// @inheritdoc ITheLodgeRevelationHandler
+  uint256 public randomNumber;
+  /// @inheritdoc ITheLodgeRevelationHandler
+  bool public revealed;
   /// @notice The subscription id for Chainlink's VRF.
   uint64 internal _subId;
 
@@ -33,13 +32,7 @@ abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandl
 
   /// @inheritdoc ITheLodgeRevelationHandler
   function reveal() external override onlyOwner {
-    coordinator.requestRandomWords(
-      _keyHash,
-      _subId,
-      3,
-      100_000, // TODO: Set this once we run a test to see how much gas it costs
-      1
-    );
+    coordinator.requestRandomWords(_keyHash, _subId, 3, 100_000, 1);
   }
 
   /// @notice Callback for the VRF Coordinator to return the requested random number.
