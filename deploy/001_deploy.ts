@@ -3,6 +3,7 @@ import { DeployFunction } from 'hardhat-deploy/types';
 import { shouldVerifyContract } from '../utils/deploy';
 import { TheLodgeConfig } from '../typechained/TheLodge';
 import { ethers } from 'hardhat';
+import { constants } from 'ethers';
 
 const IN_32_YEARS = 2651499646;
 
@@ -37,7 +38,7 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
       maxTokensPerAddress: 7,
       saleStartTimestamp: IN_32_YEARS, // TODO: set properly
       openSaleStartTimestamp: IN_32_YEARS, // TODO: set properly
-      merkleRoot: '', // TODO: set properly
+      merkleRoot: constants.HashZero, // TODO: set properly
     },
     revelationConfig: {
       vrfCoordinator,
@@ -50,8 +51,8 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
     },
   };
 
-  const deploy = await hre.deployments.deploy('Lodge', {
-    contract: 'contracts/TheLodge.sol:TheLodge',
+  const deploy = await hre.deployments.deploy('TheLodge', {
+    contract: 'solidity/contracts/TheLodge.sol:TheLodge',
     from: deployer,
     args: [config],
     log: true,
@@ -65,5 +66,5 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
   }
 };
 deployFunction.dependencies = [];
-deployFunction.tags = ['Lodge'];
+deployFunction.tags = ['TheLodge'];
 export default deployFunction;

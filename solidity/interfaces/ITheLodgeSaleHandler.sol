@@ -2,7 +2,7 @@
 pragma solidity >=0.8.4 <0.9.0;
 
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 /// @notice Handles everything related to the sale.
 interface ITheLodgeSaleHandler {
@@ -87,7 +87,7 @@ interface ITheLodgeSaleHandler {
 
   /// @notice Returns the address of the payment token.
   /// @return The payment token.
-  function alternativePaymentToken() external view returns (IERC20);
+  function alternativePaymentToken() external view returns (IERC20Metadata);
 
   /// @notice Returns the whitelisted sale start timestamp.
   /// @return The whitelisted sale start timestamp.

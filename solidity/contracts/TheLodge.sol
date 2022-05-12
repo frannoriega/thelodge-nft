@@ -1,7 +1,6 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity >=0.8.4 <0.9.0;
 
-import 'hardhat/console.sol';
 import '../library/TheLodgeConfig.sol';
 import './TheLodgeRevelationHandler.sol';
 import './TheLodgeSaleHandler.sol';

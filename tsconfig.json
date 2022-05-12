@@ -11,7 +11,7 @@
       "@typechained": ["typechained/index"],
       "@utils": ["test/utils/index"],
       "@utils/*": ["test/utils/*"],
-      "@e2e/*": ["test/e2e/*"],
+      "@e2e/*": ["test/ze2e/*"],
       "@unit/*": ["test/unit/*"],
       "@test-utils/*": ["test/utils/*"],
       "@eth-sdk-types": ["node_modules/.dethcrypto/eth-sdk-client/esm/types"]

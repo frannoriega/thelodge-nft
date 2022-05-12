@@ -6,49 +6,46 @@ import '../interfaces/ITheLodgeSaleHandler.sol';
 import 'erc721a/contracts/ERC721A.sol';
 import '@openzeppelin/contracts/utils/cryptography/MerkleProof.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '../library/TheLodgeConfig.sol';
 
 /// @title TheLodgeSaleHandler
 /// @notice Contract that handles all the sale logic.
 abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A, ITokenPriceOracle {
-  using SafeERC20 for IERC20;
+  using SafeERC20 for IERC20Metadata;
 
   /// @inheritdoc ITheLodgeSaleHandler
   uint16 public constant MAX_SUPPLY = 7777;
-
-  /// @inheritdoc ITheLodgeSaleHandler
-  uint256 public tokenPrice;
-  /// @inheritdoc ITheLodgeSaleHandler
-  uint8 public maxTokensPerAddress;
-
   /// @inheritdoc ITheLodgeSaleHandler
   AggregatorV3Interface public immutable priceOracle;
   /// @inheritdoc ITheLodgeSaleHandler
+  IERC20Metadata public immutable alternativePaymentToken;
+  /// @inheritdoc ITheLodgeSaleHandler
+  uint8 public maxTokensPerAddress;
+  /// @inheritdoc ITheLodgeSaleHandler
   uint32 public maxDelay;
   /// @inheritdoc ITheLodgeSaleHandler
-  IERC20 public immutable alternativePaymentToken;
-
+  uint256 public tokenPrice;
   /// @inheritdoc ITheLodgeSaleHandler
   uint256 public saleStartTimestamp;
   /// @inheritdoc ITheLodgeSaleHandler
   uint256 public openSaleStartTimestamp;
-
   /// @inheritdoc ITheLodgeSaleHandler
   bytes32 public merkleRoot;
+  /// @dev We are now caching this magnitude, so we don't need to calculate it each time
+  uint256 private immutable alternativePaymentTokenMagnitude;
 
   constructor(TheLodgeConfig.SaleConfig memory _saleConfig) ERC721A(_saleConfig.tokenName, _saleConfig.tokenSymbol) {
     _validateStartTimestamps(_saleConfig.saleStartTimestamp, _saleConfig.openSaleStartTimestamp);
-    tokenPrice = _saleConfig.nftPrice; // TODO: Setters
     priceOracle = AggregatorV3Interface(_saleConfig.oracle);
-    maxDelay = _saleConfig.maxDelay;
-    maxTokensPerAddress = _saleConfig.maxTokensPerAddress; //TODO: Setters
     alternativePaymentToken = _saleConfig.alternativePaymentToken;
-    saleStartTimestamp = _saleConfig.saleStartTimestamp; //TODO: Setters
-    openSaleStartTimestamp = _saleConfig.openSaleStartTimestamp; //TODO: Setters
+    maxTokensPerAddress = _saleConfig.maxTokensPerAddress;
+    maxDelay = _saleConfig.maxDelay;
+    tokenPrice = _saleConfig.nftPrice;
+    saleStartTimestamp = _saleConfig.saleStartTimestamp;
+    openSaleStartTimestamp = _saleConfig.openSaleStartTimestamp;
     merkleRoot = _saleConfig.merkleRoot;
+    alternativePaymentTokenMagnitude = 10**alternativePaymentToken.decimals();
   }
 
   /// @inheritdoc ITheLodgeSaleHandler
@@ -141,9 +138,9 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   function _validateCommonSale(uint256 quantity, bool failIfClaimed) internal view {
     if (msg.sender != tx.origin) revert ContractsCantBuy();
-    uint256 tokensInAddress = balanceOf(msg.sender);
-    if (failIfClaimed && tokensInAddress > 0) revert AddressAlreadyClaimed();
-    if (tokensInAddress + quantity > maxTokensPerAddress) revert TokenLimitExceeded();
+    uint256 _addressBalance = balanceOf(msg.sender);
+    if (failIfClaimed && _addressBalance > 0) revert AddressAlreadyClaimed();
+    if (_addressBalance + quantity > maxTokensPerAddress) revert TokenLimitExceeded();
     _validateCommon(quantity);
   }
 
@@ -163,8 +160,8 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   function _getPriceInToken(uint256 quantity) internal view returns (uint256) {
     (, int256 _answer, , uint256 _updatedAt, ) = priceOracle.latestRoundData();
     if (_answer <= 0) revert InvalidAnswer();
-    if (_updatedAt < block.timestamp - maxDelay) revert OutdatedAnswer();
-    return (tokenPrice * quantity) / uint256(_answer);
+    if (_updatedAt + maxDelay < block.timestamp) revert OutdatedAnswer();
+    return (tokenPrice * quantity * alternativePaymentTokenMagnitude) / uint256(_answer);
   }
 
   function _validateStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) internal pure {
