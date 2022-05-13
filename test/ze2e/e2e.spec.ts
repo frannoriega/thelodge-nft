@@ -11,6 +11,13 @@ import AGGREGATOR_V3_ABI from '@chainlink/contracts/abi/v0.8/AggregatorV3Interfa
 import { MerkleTree } from 'merkletreejs';
 import { keccak256 } from 'ethers/lib/utils';
 
+enum Rarity {
+  Apprentice,
+  Fellow,
+  Master,
+  Transcended,
+}
+
 const BLOCK_NUMBER = 14757530;
 const BLOCK_TIMESTAMP = 1652308534;
 const AN_HOUR_LATER = BLOCK_TIMESTAMP + 60 * 60;
@@ -26,7 +33,8 @@ describe('E2E test', () => {
     saleETH: SignerWithAddress,
     saleAPE: SignerWithAddress,
     airdropped: SignerWithAddress,
-    recipient: SignerWithAddress;
+    recipient: SignerWithAddress,
+    canPromote: SignerWithAddress;
 
   let theLodge: TheLodge;
   let apeWhale: JsonRpcSigner, coordinator: JsonRpcSigner;
@@ -35,7 +43,7 @@ describe('E2E test', () => {
   let merkleTree: MerkleTree;
 
   before(async () => {
-    [, whitelistedETH, whitelistedAPE, saleETH, saleAPE, airdropped, recipient] = await ethers.getSigners();
+    [, whitelistedETH, whitelistedAPE, saleETH, saleAPE, airdropped, recipient, canPromote] = await ethers.getSigners();
     await evm.reset({
       jsonRpcUrl: getNodeUrl('mainnet'),
       blockNumber: BLOCK_NUMBER,
@@ -58,6 +66,7 @@ describe('E2E test', () => {
     await theLodge.setUnrevealedURI(UNREVEALED_URI);
     await theLodge.setStartTimestamps(BLOCK_TIMESTAMP, AN_HOUR_LATER);
     await theLodge.setMaxDelay(BigNumber.from(2).pow(32).sub(1));
+    await theLodge.setPromotePermission(canPromote.address, true);
     mintPriceETH = await theLodge.tokenPrice();
     const { answer } = await priceOracle.latestRoundData();
     mintPriceAPE = mintPriceETH.mul(BigNumber.from(10).pow(await APE.decimals())).div(answer);
@@ -67,7 +76,8 @@ describe('E2E test', () => {
     await APE.connect(apeWhale).transfer(saleAPE.address, mintPriceAPE.mul(2));
 
     // Set whitelist
-    const whitelisted = [keccak256(whitelistedETH.address), keccak256(whitelistedAPE.address)];
+    const addressesToWhitelist = [whitelistedETH, whitelistedAPE];
+    const whitelisted = addressesToWhitelist.map((signer) => keccak256(signer.address.toLowerCase()));
     merkleTree = new MerkleTree(whitelisted, keccak256, { sort: true });
     await theLodge.setMerkleRoot(merkleTree.getHexRoot());
 
@@ -143,6 +153,21 @@ describe('E2E test', () => {
     // Assertions
     await assertTransferWasMade('eth', theLodge, recipient, mintPriceETH.mul(5));
     await assertTransferWasMade('ape', theLodge, recipient, mintPriceAPE.mul(5));
+
+    // Read token data
+    const uri = await theLodge.tokenURI(1);
+    const rarity = await theLodge.getRarity(1);
+
+    // Promote
+    await theLodge.connect(canPromote).promote(1);
+
+    // Read token data again
+    const uriAfterPromote = await theLodge.tokenURI(1);
+    const rarityAfterPromote = await theLodge.getRarity(1);
+
+    // Assertions
+    expect(uriAfterPromote).to.be.not.equal(uri);
+    expect(rarityAfterPromote).to.equal(rarity + 1);
   });
 
   async function assertAllTokensReturnRevealedURI(...tokenIds: number[]) {
@@ -158,8 +183,8 @@ describe('E2E test', () => {
   async function assertAllTokensReturnARarity(...tokenIds: number[]) {
     for (const tokenId of tokenIds) {
       expect(await theLodge.getRarity(tokenId))
-        .to.be.greaterThanOrEqual(0)
-        .and.lessThanOrEqual(2);
+        .to.be.greaterThanOrEqual(Rarity.Apprentice)
+        .and.lessThanOrEqual(Rarity.Master);
     }
   }
 
