@@ -45,6 +45,9 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   /// @notice The URI to be used by all tokens, until the reveal.
   string public unrevealedURI;
 
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  mapping(address => bool) public isWhitelistedToPromote;
+
   mapping(uint256 => uint256) public promotions; // token id => URI id
   mapping(Rarity => PromotionData) public promotionPerRarity; // current rarity => PromotionData
 
@@ -133,12 +136,9 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     rarities[75] = RarityByIndex(Rarity.Fellow, 26);
     rarities[76] = RarityByIndex(Rarity.Apprentice, 45);
 
-    promotionPerRarity[Rarity.Apprentice] = PromotionData({
-      nextId: FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW,
-      promotionsLeft: MAX_PROMOTIONS_TO_FELLOW
-    });
-    promotionPerRarity[Rarity.Fellow] = PromotionData({nextId: MASTER_FIRST_ID + MAX_MINTABLE_MASTER, promotionsLeft: MAX_PROMOTIONS_TO_MASTER});
-    promotionPerRarity[Rarity.Master] = PromotionData({nextId: TRANSCENDED_FIRST_ID, promotionsLeft: MAX_PROMOTIONS_TO_TRANSCENDED});
+    promotionPerRarity[Rarity.Fellow] = PromotionData({nextId: FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW, promotionsLeft: MAX_PROMOTIONS_TO_FELLOW});
+    promotionPerRarity[Rarity.Master] = PromotionData({nextId: MASTER_FIRST_ID + MAX_MINTABLE_MASTER, promotionsLeft: MAX_PROMOTIONS_TO_MASTER});
+    promotionPerRarity[Rarity.Transcended] = PromotionData({nextId: TRANSCENDED_FIRST_ID, promotionsLeft: MAX_PROMOTIONS_TO_TRANSCENDED});
   }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
@@ -157,17 +157,21 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
-  function promote(uint256 tokenId) external {
-    // TODO: Make sure that only whitelisted address can promote
+  function promote(uint256 tokenId) external returns (Rarity newRarity) {
+    if (!isWhitelistedToPromote[msg.sender]) revert CallerCannotPromote();
 
     Rarity currentRarity = getRarity(tokenId);
-    PromotionData memory promotionData = promotionPerRarity[currentRarity];
+    newRarity = Rarity(uint8(currentRarity) + 1);
+    PromotionData memory promotionData = promotionPerRarity[newRarity];
 
-    // Note: will underflow if there are no more promotions available for the token's rarity
-    promotionPerRarity[currentRarity] = PromotionData({nextId: promotionData.nextId + 1, promotionsLeft: promotionData.promotionsLeft - 1});
+    // Note: will revert with underflow if there are no more promotions available for the rarity
+    promotionPerRarity[newRarity] = PromotionData({nextId: promotionData.nextId + 1, promotionsLeft: promotionData.promotionsLeft - 1});
 
     // Store promotion
     promotions[tokenId] = promotionData.nextId;
+
+    // Emit event
+    emit TokenPromoted(tokenId, newRarity);
   }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
@@ -189,6 +193,11 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   /// @inheritdoc ITheLodgeTokenInspectorHandler
   function setUnrevealedURI(string calldata _unrevealedURI) external onlyOwner {
     unrevealedURI = _unrevealedURI;
+  }
+
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function setPromotePermission(address _address, bool _canPromote) external onlyOwner {
+    isWhitelistedToPromote[_address] = _canPromote;
   }
 
   // We now want to randomly calculate a 'URI id', based on the tokenId

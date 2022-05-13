@@ -17,9 +17,16 @@ interface ITheLodgeTokenInspectorHandler {
     uint248 orderInRarity;
   }
 
-  /// @notice Thrown when attempting to get the rarity.
-  /// of a token that does not exist.
+  /// @notice Emitted when a token is promoted
+  /// @param tokenId The token that was promoted
+  /// @param newRarity The new rarity
+  event TokenPromoted(uint256 tokenId, Rarity newRarity);
+
+  /// @notice Thrown when attempting to get the rarity of a token that does not exist
   error TokenDoesNotExist();
+
+  /// @notice Thrown a caller that is not whitelisted tries to promote a token
+  error CallerCannotPromote();
 
   /// @notice Computes the rarity of a token.
   /// @dev Should throw TokenDoesNotExist if the token does not exist.
@@ -32,9 +39,20 @@ interface ITheLodgeTokenInspectorHandler {
   /// @return The URI for the token.
   function tokenURI(uint256 tokenId) external view returns (string memory);
 
+  /// @notice Returns whether the given address is whitelisted to promote or not
+  /// @param addressToCheck The address to check
+  /// @return Whether the given address is whitelisted to promote or not
+  function isWhitelistedToPromote(address addressToCheck) external view returns (bool);
+
   /// @notice Promotes a specific token to the next rarity level
   /// @param tokenId The id of the token to promote
-  function promote(uint256 tokenId) external;
+  /// @return newRarity The token's new rarity
+  function promote(uint256 tokenId) external returns (Rarity newRarity);
+
+  /// @notice Sets whether the given address can execute promotions or not
+  /// @param _address The address to give or take permissions from
+  /// @param canPromote Whether the address will be able to promote or not
+  function setPromotePermission(address _address, bool canPromote) external;
 
   /// @notice Sets the base URI.
   /// @param _baseURI The new base URI.

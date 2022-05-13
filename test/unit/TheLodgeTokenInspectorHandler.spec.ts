@@ -4,6 +4,7 @@ import { TheLodgeTokenInspectorHandlerImpl, TheLodgeTokenInspectorHandlerImpl__f
 import { given, then, when } from '@utils/bdd';
 import { snapshot } from '@utils/evm';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 describe('TheLodgeTokenInspectorHandler', () => {
   enum Rarity {
@@ -15,6 +16,7 @@ describe('TheLodgeTokenInspectorHandler', () => {
 
   const BASE_URI: string = 'baseUri/';
   const UNREVEALED_URI: string = 'unrevealedUri';
+  let whitelisted: SignerWithAddress, notWhitelisted: SignerWithAddress;
   let maxSupply: number;
   let firstIdApprentice: number, firstIdFellow: number, firstIdMaster: number, firstIdTranscended: number;
   let maxMintableApprentice: number, maxMintableFellow: number, maxMintableMaster: number;
@@ -26,6 +28,7 @@ describe('TheLodgeTokenInspectorHandler', () => {
     const TokenInspectorHandlerImplFactory: TheLodgeTokenInspectorHandlerImpl__factory = await ethers.getContractFactory(
       'TheLodgeTokenInspectorHandlerImpl'
     );
+    [whitelisted, notWhitelisted] = await ethers.getSigners();
     tokenInspectorHandler = await TokenInspectorHandlerImplFactory.deploy({ baseURI: BASE_URI, unrevealedURI: UNREVEALED_URI });
     maxMintableApprentice = await tokenInspectorHandler.MAX_MINTABLE_APPRENTICE();
     maxMintableFellow = await tokenInspectorHandler.MAX_MINTABLE_FELLOW();
@@ -47,18 +50,18 @@ describe('TheLodgeTokenInspectorHandler', () => {
 
   describe('constructor', () => {
     when('contract is deployed', () => {
-      then('promotion for apprentice is set up correctly', async () => {
-        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Apprentice);
+      then('promotion data for fellow is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Fellow);
         expect(nextId).to.equal(firstIdFellow + maxMintableFellow);
         expect(promotionsLeft).to.equal(maxPromotionsFellow);
       });
-      then('promotion for fellow is set up correctly', async () => {
-        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Fellow);
+      then('promotion data for master is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Master);
         expect(nextId).to.equal(firstIdMaster + maxMintableMaster);
         expect(promotionsLeft).to.equal(maxPromotionsMaster);
       });
-      then('promotion for master is set up correctly', async () => {
-        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Master);
+      then('promotion data for transcended is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Transcended);
         expect(nextId).to.equal(firstIdTranscended);
         expect(promotionsLeft).to.equal(maxPromotionsTranscended);
       });
@@ -155,38 +158,51 @@ describe('TheLodgeTokenInspectorHandler', () => {
   });
 
   describe('promote', () => {
-    const PANIC_CODE_ERROR = 'panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)';
     given(async () => {
       await tokenInspectorHandler.setRandomNumber(23113);
+      await tokenInspectorHandler.setPromotePermission(whitelisted.address, true);
     });
 
     promoteTest({
       tokenId: 3,
       typeBeingPromoted: 'apprentice',
-      current: () => ({ rarity: Rarity.Apprentice, promotionsLeft: maxPromotionsFellow, nextId: firstIdFellow + maxMintableFellow }),
+      promotionsAvailable: () => maxPromotionsFellow,
+      nextId: () => firstIdFellow + maxMintableFellow,
       newRarity: Rarity.Fellow,
     });
     promoteTest({
       tokenId: 2,
       typeBeingPromoted: 'fellow',
-      current: () => ({ rarity: Rarity.Fellow, promotionsLeft: maxPromotionsMaster, nextId: firstIdMaster + maxMintableMaster }),
+      promotionsAvailable: () => maxPromotionsMaster,
+      nextId: () => firstIdMaster + maxMintableMaster,
       newRarity: Rarity.Master,
     });
     promoteTest({
       tokenId: 1,
       typeBeingPromoted: 'master',
-      current: () => ({ rarity: Rarity.Master, promotionsLeft: maxPromotionsTranscended, nextId: firstIdTranscended }),
+      promotionsAvailable: () => maxPromotionsTranscended,
+      nextId: () => firstIdTranscended,
       newRarity: Rarity.Transcended,
     });
 
     when('there are no more promotions left and a promotion is executed', () => {
       let tx: Promise<TransactionResponse>;
       given(async () => {
-        await tokenInspectorHandler.setPromotionData(Rarity.Apprentice, { nextId: 10, promotionsLeft: 0 });
+        await tokenInspectorHandler.setPromotionData(Rarity.Fellow, { nextId: 10, promotionsLeft: 0 });
         tx = tokenInspectorHandler.promote(3);
       });
       then('the tx reverts', async () => {
-        await expect(tx).to.have.revertedWith(PANIC_CODE_ERROR);
+        await expect(tx).to.have.revertedWith('panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)');
+      });
+    });
+
+    when('caller that is not whitelisted tries to promote a token', () => {
+      let tx: Promise<TransactionResponse>;
+      given(() => {
+        tx = tokenInspectorHandler.connect(notWhitelisted).promote(3);
+      });
+      then('the tx reverts', async () => {
+        await expect(tx).to.have.revertedWith('CallerCannotPromote');
       });
     });
 
@@ -199,7 +215,9 @@ describe('TheLodgeTokenInspectorHandler', () => {
         tx = tokenInspectorHandler.promote(TOKEN_ID);
       });
       then('the tx reverts', async () => {
-        await expect(tx).to.have.revertedWith(PANIC_CODE_ERROR);
+        await expect(tx).to.have.revertedWith(
+          'VM Exception while processing transaction: reverted with panic code 0x21 (Tried to convert a value into an enum, but the value was too big or negative)'
+        );
       });
     });
 
@@ -216,35 +234,61 @@ describe('TheLodgeTokenInspectorHandler', () => {
 
     function promoteTest({
       tokenId,
-      current,
+      promotionsAvailable,
+      nextId,
       newRarity,
       typeBeingPromoted,
     }: {
       tokenId: number;
-      current: () => { rarity: Rarity; promotionsLeft: number; nextId: number };
+      promotionsAvailable: () => number;
+      nextId: () => number;
       newRarity: Rarity;
       typeBeingPromoted: string;
     }) {
       when(`token of type ${typeBeingPromoted} is promoted`, () => {
+        let tx: TransactionResponse;
         given(async () => {
-          await tokenInspectorHandler.promote(tokenId);
+          tx = await tokenInspectorHandler.promote(tokenId);
         });
         then('promotion data is updated correctly', async () => {
-          const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(current().rarity);
-          expect(nextId).to.equal(current().nextId + 1);
-          expect(promotionsLeft).to.equal(current().promotionsLeft - 1);
+          const promotionData = await tokenInspectorHandler.promotionPerRarity(newRarity);
+          expect(promotionData.nextId).to.equal(nextId() + 1);
+          expect(promotionData.promotionsLeft).to.equal(promotionsAvailable() - 1);
         });
         then('promotion is assigned correctly', async () => {
-          expect(await tokenInspectorHandler.promotions(tokenId)).to.equal(current().nextId);
+          expect(await tokenInspectorHandler.promotions(tokenId)).to.equal(nextId());
         });
         then('token id reads new promotion id correctly', async () => {
-          expect(await tokenInspectorHandler.tokenURI(tokenId)).to.equal(BASE_URI + current().nextId);
+          expect(await tokenInspectorHandler.tokenURI(tokenId)).to.equal(BASE_URI + nextId());
         });
         then('rarity is reported correctly', async () => {
           expect(await tokenInspectorHandler.getRarity(tokenId)).to.equal(newRarity);
         });
+        then('event is emitted correctly', () => {
+          expect(tx).to.emit(tokenInspectorHandler, 'TokenPromoted').withArgs(tokenId, newRarity);
+        });
       });
     }
+  });
+
+  describe('setPromotePermission', () => {
+    when('caller other that owner tries to set permisisons', () => {
+      let tx: Promise<TransactionResponse>;
+      given(() => {
+        tx = tokenInspectorHandler.connect(notWhitelisted).setPromotePermission(notWhitelisted.address, true);
+      });
+      then('tx is reverted', async () => {
+        await expect(tx).to.be.revertedWith('Ownable: caller is not the owner');
+      });
+    });
+    when('owner tries to set permisisons', () => {
+      given(async () => {
+        await tokenInspectorHandler.setPromotePermission(whitelisted.address, true);
+      });
+      then('permission is set correctly', async () => {
+        expect(await tokenInspectorHandler.isWhitelistedToPromote(whitelisted.address)).to.be.true;
+      });
+    });
   });
 
   describe('getURIId', () => {
