@@ -9,6 +9,12 @@ import '../library/TheLodgeConfig.sol';
 /// @title TheLodgeTokenInspectorHandler
 /// @notice Contract that handles all the token inspection (rarity) logic.
 abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspectorHandler {
+  /// @notice Information on how to promote tokens
+  struct PromotionData {
+    uint128 nextId;
+    uint128 promotionsLeft;
+  }
+
   using Strings for uint256;
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
@@ -39,8 +45,8 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   /// @notice The URI to be used by all tokens, until the reveal.
   string public unrevealedURI;
 
-  // mapping(uint256 => uint256) public promotions; // tokenId => URI Id
-  // mapping(Rarity => PromotionData) public promotionPerRarity; // from rarity => PromotionData
+  mapping(uint256 => uint256) public promotions; // token id => URI id
+  mapping(Rarity => PromotionData) public promotionPerRarity; // current rarity => PromotionData
 
   RarityByIndex[77] private rarities;
 
@@ -127,9 +133,12 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     rarities[75] = RarityByIndex(Rarity.Fellow, 26);
     rarities[76] = RarityByIndex(Rarity.Apprentice, 45);
 
-    // promotionPerRarity[Rarity.Apprentice] = PromotionData({ nextId: FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW, promotionsLeft: MAX_PROMOTIONS_TO_FELLOW });
-    // promotionPerRarity[Rarity.Fellow] = PromotionData({ nextId: MASTER_FIRST_ID + MAX_MINTABLE_MASTER, promotionsLeft: MAX_PROMOTIONS_TO_MASTER });
-    // promotionPerRarity[Rarity.Master] = PromotionData({ nextId: TRANSCENDED_FIRST_ID, promotionsLeft: MAX_PROMOTIONS_TO_TRANSCENDED });
+    promotionPerRarity[Rarity.Apprentice] = PromotionData({
+      nextId: FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW,
+      promotionsLeft: MAX_PROMOTIONS_TO_FELLOW
+    });
+    promotionPerRarity[Rarity.Fellow] = PromotionData({nextId: MASTER_FIRST_ID + MAX_MINTABLE_MASTER, promotionsLeft: MAX_PROMOTIONS_TO_MASTER});
+    promotionPerRarity[Rarity.Master] = PromotionData({nextId: TRANSCENDED_FIRST_ID, promotionsLeft: MAX_PROMOTIONS_TO_TRANSCENDED});
   }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
@@ -147,18 +156,19 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     }
   }
 
-  // function promote(uint256 tokenId) external {
-  //   // TODO: Make sure that only whitelisted address can promote
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  function promote(uint256 tokenId) external {
+    // TODO: Make sure that only whitelisted address can promote
 
-  //   Rarity currentRarity = getRarity(tokenId);
-  //   PromotionData memory promotionData = promotionPerRarity[currentRarity];
+    Rarity currentRarity = getRarity(tokenId);
+    PromotionData memory promotionData = promotionPerRarity[currentRarity];
 
-  //   // Note: will underflow if there are no more promotions available for the token's rarity
-  //   promotionPerRarity[currentRarity] = PromotionData({ nextId: promotionData.nextId + 1, promotionsLeft: promotionData.promotionsLeft - 1 });
+    // Note: will underflow if there are no more promotions available for the token's rarity
+    promotionPerRarity[currentRarity] = PromotionData({nextId: promotionData.nextId + 1, promotionsLeft: promotionData.promotionsLeft - 1});
 
-  //   // Store promotion
-  //   promotions[tokenId] = promotionData.nextId;
-  // }
+    // Store promotion
+    promotions[tokenId] = promotionData.nextId;
+  }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
@@ -183,6 +193,18 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
 
   // We now want to randomly calculate a 'URI id', based on the tokenId
   function getURIId(uint256 tokenId) internal view returns (uint256 uriId) {
+    // Check if there was a promotion. If so, then return it
+    uint256 promotion = promotions[tokenId];
+    if (promotion > 0) return promotion;
+
+    // If there wasn't a promotion, then we will calculate the URI id. URI ids are pretty simple. All possible apprentice come first, then
+    // fellows, then masters, and finally transcendeds. It basically looks like this AA...AAFF...FFMM...MMTT..TT. What we are trying to do here
+    // is to randomly map a token id to a URI id.
+    // The idea is that we will divide 7777 minted tokens in 101 chunks of size 77. We will then take the random number and token id, and get a
+    // position in the chunk. That positon already has a rarity assigned. So by knowing how many tokens of the same rarity we have before this one
+    // we can calculate the URI id. By doing this, we can make sure that each token id is mapped to one and only one URI id. Also, since the
+    // rarity is assigned based on a random number, we can make sure that no-one can predetermine the rarity based on the mint id.
+
     uint256 normalizedValue = (tokenId + _getRandomNumber()) % 77;
     RarityByIndex memory rarityByIndex = rarities[normalizedValue];
     uint256 amountEvery77Tokens;

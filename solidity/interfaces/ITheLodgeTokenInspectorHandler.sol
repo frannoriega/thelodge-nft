@@ -3,11 +3,6 @@ pragma solidity >=0.8.4 <0.9.0;
 
 /// @notice Handles everything related to determining the rarity of a token.
 interface ITheLodgeTokenInspectorHandler {
-  // struct PromotionData {
-  //   uint128 nextId;
-  //   uint128 promotionsLeft;
-  // }
-
   /// @notice The different types of rarity a token can have.
   enum Rarity {
     Apprentice,
@@ -36,6 +31,10 @@ interface ITheLodgeTokenInspectorHandler {
   /// @param tokenId The token ID used to generate the URI.
   /// @return The URI for the token.
   function tokenURI(uint256 tokenId) external view returns (string memory);
+
+  /// @notice Promotes a specific token to the next rarity level
+  /// @param tokenId The id of the token to promote
+  function promote(uint256 tokenId) external;
 
   /// @notice Sets the base URI.
   /// @param _baseURI The new base URI.

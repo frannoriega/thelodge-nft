@@ -34,6 +34,10 @@ contract TheLodgeTokenInspectorHandlerImpl is TheLodgeTokenInspectorHandler {
     _tokenDoesNotExist[tokenId] = !exists;
   }
 
+  function setPromotionData(Rarity rarity, PromotionData calldata promotionData) external {
+    promotionPerRarity[rarity] = promotionData;
+  }
+
   function getRarities(uint256[] calldata tokenIds) external view returns (Rarity[] memory rarities) {
     rarities = new Rarity[](tokenIds.length);
     for (uint256 i; i < tokenIds.length; i++) {

@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import { TheLodgeTokenInspectorHandlerImpl, TheLodgeTokenInspectorHandlerImpl__factory } from '@typechained';
 import { given, then, when } from '@utils/bdd';
 import { snapshot } from '@utils/evm';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
 
 describe('TheLodgeTokenInspectorHandler', () => {
   enum Rarity {
@@ -15,8 +16,9 @@ describe('TheLodgeTokenInspectorHandler', () => {
   const BASE_URI: string = 'baseUri/';
   const UNREVEALED_URI: string = 'unrevealedUri';
   let maxSupply: number;
-  let firstIdApprentice: number, firstIdFellow: number, firstIdMaster: number, firstIdTrascended: number;
+  let firstIdApprentice: number, firstIdFellow: number, firstIdMaster: number, firstIdTranscended: number;
   let maxMintableApprentice: number, maxMintableFellow: number, maxMintableMaster: number;
+  let maxPromotionsFellow: number, maxPromotionsMaster: number, maxPromotionsTranscended: number;
   let tokenInspectorHandler: TheLodgeTokenInspectorHandlerImpl;
   let snapshotId: string;
 
@@ -31,13 +33,36 @@ describe('TheLodgeTokenInspectorHandler', () => {
     firstIdApprentice = await tokenInspectorHandler.APPRENTICE_FIRST_ID();
     firstIdFellow = await tokenInspectorHandler.FELLOW_FIRST_ID();
     firstIdMaster = await tokenInspectorHandler.MASTER_FIRST_ID();
-    firstIdTrascended = await tokenInspectorHandler.TRANSCENDED_FIRST_ID();
+    firstIdTranscended = await tokenInspectorHandler.TRANSCENDED_FIRST_ID();
+    maxPromotionsFellow = await tokenInspectorHandler.MAX_PROMOTIONS_TO_FELLOW();
+    maxPromotionsMaster = await tokenInspectorHandler.MAX_PROMOTIONS_TO_MASTER();
+    maxPromotionsTranscended = await tokenInspectorHandler.MAX_PROMOTIONS_TO_TRANSCENDED();
     maxSupply = maxMintableApprentice + maxMintableFellow + maxMintableMaster;
     snapshotId = await snapshot.take();
   });
 
   beforeEach(async function () {
     await snapshot.revert(snapshotId);
+  });
+
+  describe('constructor', () => {
+    when('contract is deployed', () => {
+      then('promotion for apprentice is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Apprentice);
+        expect(nextId).to.equal(firstIdFellow + maxMintableFellow);
+        expect(promotionsLeft).to.equal(maxPromotionsFellow);
+      });
+      then('promotion for fellow is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Fellow);
+        expect(nextId).to.equal(firstIdMaster + maxMintableMaster);
+        expect(promotionsLeft).to.equal(maxPromotionsMaster);
+      });
+      then('promotion for master is set up correctly', async () => {
+        const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(Rarity.Master);
+        expect(nextId).to.equal(firstIdTranscended);
+        expect(promotionsLeft).to.equal(maxPromotionsTranscended);
+      });
+    });
   });
 
   describe('tokenUri', () => {
@@ -112,9 +137,9 @@ describe('TheLodgeTokenInspectorHandler', () => {
         // are going to be 14, 15 and 16 respectively.
         // The rarities should be Master, Fellow and Apprentice (respectively), and there is no other group
         // of normalized values that yield those rarities in that order.
-        expect(await tokenInspectorHandler.getRarity(1)).to.be.equal(2); // 2 = Master
-        expect(await tokenInspectorHandler.getRarity(2)).to.be.equal(1); // 1 = Fellow
-        expect(await tokenInspectorHandler.getRarity(3)).to.be.equal(0); // 0 = Apprentice
+        expect(await tokenInspectorHandler.getRarity(1)).to.be.equal(Rarity.Master);
+        expect(await tokenInspectorHandler.getRarity(2)).to.be.equal(Rarity.Fellow);
+        expect(await tokenInspectorHandler.getRarity(3)).to.be.equal(Rarity.Apprentice);
       });
     });
 
@@ -127,6 +152,99 @@ describe('TheLodgeTokenInspectorHandler', () => {
         await expect(tokenInspectorHandler.getRarity(TOKEN_ID)).to.have.revertedWith('TokenDoesNotExist');
       });
     });
+  });
+
+  describe('promote', () => {
+    const PANIC_CODE_ERROR = 'panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)';
+    given(async () => {
+      await tokenInspectorHandler.setRandomNumber(23113);
+    });
+
+    promoteTest({
+      tokenId: 3,
+      typeBeingPromoted: 'apprentice',
+      current: () => ({ rarity: Rarity.Apprentice, promotionsLeft: maxPromotionsFellow, nextId: firstIdFellow + maxMintableFellow }),
+      newRarity: Rarity.Fellow,
+    });
+    promoteTest({
+      tokenId: 2,
+      typeBeingPromoted: 'fellow',
+      current: () => ({ rarity: Rarity.Fellow, promotionsLeft: maxPromotionsMaster, nextId: firstIdMaster + maxMintableMaster }),
+      newRarity: Rarity.Master,
+    });
+    promoteTest({
+      tokenId: 1,
+      typeBeingPromoted: 'master',
+      current: () => ({ rarity: Rarity.Master, promotionsLeft: maxPromotionsTranscended, nextId: firstIdTranscended }),
+      newRarity: Rarity.Transcended,
+    });
+
+    when('there are no more promotions left and a promotion is executed', () => {
+      let tx: Promise<TransactionResponse>;
+      given(async () => {
+        await tokenInspectorHandler.setPromotionData(Rarity.Apprentice, { nextId: 10, promotionsLeft: 0 });
+        tx = tokenInspectorHandler.promote(3);
+      });
+      then('the tx reverts', async () => {
+        await expect(tx).to.have.revertedWith(PANIC_CODE_ERROR);
+      });
+    });
+
+    when('a transcended is set up for promotion', () => {
+      const TOKEN_ID = 1;
+      let tx: Promise<TransactionResponse>;
+      given(async () => {
+        // Promote once to transcended
+        await tokenInspectorHandler.promote(TOKEN_ID);
+        tx = tokenInspectorHandler.promote(TOKEN_ID);
+      });
+      then('the tx reverts', async () => {
+        await expect(tx).to.have.revertedWith(PANIC_CODE_ERROR);
+      });
+    });
+
+    it('an apprentice can be promoted many times, into transcended', async () => {
+      const tokenId = 3;
+      await tokenInspectorHandler.promote(tokenId);
+      expect(await tokenInspectorHandler.getRarity(tokenId)).to.equal(Rarity.Fellow);
+      await tokenInspectorHandler.promote(tokenId);
+      expect(await tokenInspectorHandler.getRarity(tokenId)).to.equal(Rarity.Master);
+      await tokenInspectorHandler.promote(tokenId);
+      expect(await tokenInspectorHandler.getRarity(tokenId)).to.equal(Rarity.Transcended);
+      expect(await tokenInspectorHandler.tokenURI(tokenId)).to.equal(BASE_URI + firstIdTranscended);
+    });
+
+    function promoteTest({
+      tokenId,
+      current,
+      newRarity,
+      typeBeingPromoted,
+    }: {
+      tokenId: number;
+      current: () => { rarity: Rarity; promotionsLeft: number; nextId: number };
+      newRarity: Rarity;
+      typeBeingPromoted: string;
+    }) {
+      when(`token of type ${typeBeingPromoted} is promoted`, () => {
+        given(async () => {
+          await tokenInspectorHandler.promote(tokenId);
+        });
+        then('promotion data is updated correctly', async () => {
+          const { nextId, promotionsLeft } = await tokenInspectorHandler.promotionPerRarity(current().rarity);
+          expect(nextId).to.equal(current().nextId + 1);
+          expect(promotionsLeft).to.equal(current().promotionsLeft - 1);
+        });
+        then('promotion is assigned correctly', async () => {
+          expect(await tokenInspectorHandler.promotions(tokenId)).to.equal(current().nextId);
+        });
+        then('token id reads new promotion id correctly', async () => {
+          expect(await tokenInspectorHandler.tokenURI(tokenId)).to.equal(BASE_URI + current().nextId);
+        });
+        then('rarity is reported correctly', async () => {
+          expect(await tokenInspectorHandler.getRarity(tokenId)).to.equal(newRarity);
+        });
+      });
+    }
   });
 
   describe('getURIId', () => {
