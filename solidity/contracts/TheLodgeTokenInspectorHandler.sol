@@ -11,10 +11,37 @@ import '../library/TheLodgeConfig.sol';
 abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspectorHandler {
   using Strings for uint256;
 
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_MINTABLE_APPRENTICE = 4646;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_MINTABLE_FELLOW = 2727;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_MINTABLE_MASTER = 404;
+
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_PROMOTIONS_TO_FELLOW = 793;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_PROMOTIONS_TO_MASTER = 463;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MAX_PROMOTIONS_TO_TRANSCENDED = 66;
+
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant APPRENTICE_FIRST_ID = 1;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant FELLOW_FIRST_ID = APPRENTICE_FIRST_ID + MAX_MINTABLE_APPRENTICE;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant MASTER_FIRST_ID = FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW + MAX_PROMOTIONS_TO_FELLOW;
+  /// @inheritdoc ITheLodgeTokenInspectorHandler
+  uint16 public constant TRANSCENDED_FIRST_ID = MASTER_FIRST_ID + MAX_MINTABLE_MASTER + MAX_PROMOTIONS_TO_MASTER;
+
   /// @notice The base URI for the token.
   string public baseURI;
   /// @notice The URI to be used by all tokens, until the reveal.
   string public unrevealedURI;
+
+  // mapping(uint256 => uint256) public promotions; // tokenId => URI Id
+  // mapping(Rarity => PromotionData) public promotionPerRarity; // from rarity => PromotionData
+
   RarityByIndex[77] private rarities;
 
   constructor(TheLodgeConfig.URIConfig memory _config) {
@@ -99,21 +126,39 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     rarities[74] = RarityByIndex(Rarity.Apprentice, 44);
     rarities[75] = RarityByIndex(Rarity.Fellow, 26);
     rarities[76] = RarityByIndex(Rarity.Apprentice, 45);
+
+    // promotionPerRarity[Rarity.Apprentice] = PromotionData({ nextId: FELLOW_FIRST_ID + MAX_MINTABLE_FELLOW, promotionsLeft: MAX_PROMOTIONS_TO_FELLOW });
+    // promotionPerRarity[Rarity.Fellow] = PromotionData({ nextId: MASTER_FIRST_ID + MAX_MINTABLE_MASTER, promotionsLeft: MAX_PROMOTIONS_TO_MASTER });
+    // promotionPerRarity[Rarity.Master] = PromotionData({ nextId: TRANSCENDED_FIRST_ID, promotionsLeft: MAX_PROMOTIONS_TO_TRANSCENDED });
   }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
   function getRarity(uint256 tokenId) public view override returns (Rarity rarity) {
     if (!_doesTokenExist(tokenId)) revert TokenDoesNotExist();
     uint256 uriId = getURIId(tokenId);
-    if (uriId <= 4646) {
+    if (uriId < FELLOW_FIRST_ID) {
       return Rarity.Apprentice;
-    } else if (uriId <= 7373) {
-      // 4646 + 2727
+    } else if (uriId < MASTER_FIRST_ID) {
       return Rarity.Fellow;
-    } else {
+    } else if (uriId < TRANSCENDED_FIRST_ID) {
       return Rarity.Master;
+    } else {
+      return Rarity.Transcended;
     }
   }
+
+  // function promote(uint256 tokenId) external {
+  //   // TODO: Make sure that only whitelisted address can promote
+
+  //   Rarity currentRarity = getRarity(tokenId);
+  //   PromotionData memory promotionData = promotionPerRarity[currentRarity];
+
+  //   // Note: will underflow if there are no more promotions available for the token's rarity
+  //   promotionPerRarity[currentRarity] = PromotionData({ nextId: promotionData.nextId + 1, promotionsLeft: promotionData.promotionsLeft - 1 });
+
+  //   // Store promotion
+  //   promotions[tokenId] = promotionData.nextId;
+  // }
 
   /// @inheritdoc ITheLodgeTokenInspectorHandler
   function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
@@ -136,6 +181,25 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     unrevealedURI = _unrevealedURI;
   }
 
+  // We now want to randomly calculate a 'URI id', based on the tokenId
+  function getURIId(uint256 tokenId) internal view returns (uint256 uriId) {
+    uint256 normalizedValue = (tokenId + _getRandomNumber()) % 77;
+    RarityByIndex memory rarityByIndex = rarities[normalizedValue];
+    uint256 amountEvery77Tokens;
+    uint256 base;
+    if (rarityByIndex.rarity == Rarity.Apprentice) {
+      base = APPRENTICE_FIRST_ID;
+      amountEvery77Tokens = 46;
+    } else if (rarityByIndex.rarity == Rarity.Fellow) {
+      base = FELLOW_FIRST_ID;
+      amountEvery77Tokens = 27;
+    } else {
+      base = MASTER_FIRST_ID;
+      amountEvery77Tokens = 4;
+    }
+    uriId = ((tokenId - 1) / 77) * amountEvery77Tokens + base + rarityByIndex.orderInRarity;
+  }
+
   /// @dev This function will determine whether the reveal was made or not.
   /// The returned value should ideally be false and then shift to true, and not change again.
   /// @return Whether the reveal was made or not.
@@ -144,24 +208,4 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   function _getRandomNumber() internal view virtual returns (uint256);
 
   function _doesTokenExist(uint256 tokenId) internal view virtual returns (bool);
-
-  // We now want to randomly calculate a 'URI id', based on the tokenId. The 'URI id' also goes from 1 to 7337 but,
-  // in order to make our lives easier, the first 4646 will be Apprentice, the following 2727 will be Fellow, and the
-  // remaining 404 will be Master
-  function getURIId(uint256 tokenId) internal view returns (uint256 uriId) {
-    uint256 normalizedValue = (tokenId + _getRandomNumber()) % 77;
-    RarityByIndex memory rarityByIndex = rarities[normalizedValue];
-    uint256 amountEvery77Tokens;
-    uint256 base;
-    if (rarityByIndex.rarity == Rarity.Apprentice) {
-      amountEvery77Tokens = 46;
-    } else if (rarityByIndex.rarity == Rarity.Fellow) {
-      base = 4646;
-      amountEvery77Tokens = 27;
-    } else {
-      base = 7373;
-      amountEvery77Tokens = 4;
-    }
-    uriId = ((tokenId - 1) / 77) * amountEvery77Tokens + base + rarityByIndex.orderInRarity + 1;
-  }
 }

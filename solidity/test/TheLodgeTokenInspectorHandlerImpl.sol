@@ -4,16 +4,26 @@ pragma solidity >=0.8.4 <0.9.0;
 import '../contracts/TheLodgeTokenInspectorHandler.sol';
 
 contract TheLodgeTokenInspectorHandlerImpl is TheLodgeTokenInspectorHandler {
+  uint256 internal _randomNumber = 123_456_789;
   mapping(uint256 => bool) internal _tokenDoesNotExist;
+  bool internal _revealed = true;
 
   constructor(TheLodgeConfig.URIConfig memory _config) TheLodgeTokenInspectorHandler(_config) {}
 
-  function _getRandomNumber() internal pure override returns (uint256) {
-    return 123_456_789;
+  function setRandomNumber(uint256 __randomNumber) external {
+    _randomNumber = __randomNumber;
   }
 
-  function _wasRevealed() internal pure override returns (bool) {
-    return true;
+  function setRevealed(bool __revealed) external {
+    _revealed = __revealed;
+  }
+
+  function _getRandomNumber() internal view override returns (uint256) {
+    return _randomNumber;
+  }
+
+  function _wasRevealed() internal view override returns (bool) {
+    return _revealed;
   }
 
   function _doesTokenExist(uint256 tokenId) internal view override returns (bool) {
