@@ -63,10 +63,7 @@ jobs:
           node-version: "12.x"
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile
-
-      - name: Compile eth-sdk
-        run: yarn eth-sdk
+        run: yarn --frozen-lockfile      
 
       - name: Run e2e tests
         run: yarn test:e2e
