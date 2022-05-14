@@ -162,4 +162,9 @@ interface ITheLodgeSaleHandler {
   /// @notice Sets the maximum amount of tokens per address.
   /// @param _maxTokensPerAddress The new maximum amount of tokens an address can have.
   function setMaxTokensPerAddress(uint8 _maxTokensPerAddress) external;
+
+  /// @notice Returns how much the caller will need to transfer in order to mint
+  /// @param quantity The amount of tokens that the caller will want to mint
+  /// @return How much the caller will need to transfer in order to mint
+  function getMintPriceInAlternativeToken(uint256 quantity) external view returns (uint256);
 }

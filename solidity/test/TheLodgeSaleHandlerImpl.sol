@@ -13,6 +13,10 @@ contract TheLodgeSaleHandlerImpl is TheLodgeSaleHandler {
     return _startTokenId();
   }
 
+  function MAX_SUPPLY() public pure override returns (uint16) {
+    return 7777;
+  }
+
   function setEnded(bool _ended) external {
     ended = _ended;
   }

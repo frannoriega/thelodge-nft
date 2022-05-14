@@ -15,8 +15,6 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
   using SafeERC20 for IERC20Metadata;
 
   /// @inheritdoc ITheLodgeSaleHandler
-  uint16 public constant MAX_SUPPLY = 7777;
-  /// @inheritdoc ITheLodgeSaleHandler
   AggregatorV3Interface public immutable priceOracle;
   /// @inheritdoc ITheLodgeSaleHandler
   IERC20Metadata public immutable alternativePaymentToken;
@@ -133,13 +131,24 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     maxTokensPerAddress = _maxTokensPerAddress;
   }
 
+  /// @inheritdoc ITheLodgeSaleHandler
+  function getMintPriceInAlternativeToken(uint256 quantity) public view returns (uint256) {
+    (, int256 _answer, , uint256 _updatedAt, ) = priceOracle.latestRoundData();
+    if (_answer <= 0) revert InvalidAnswer();
+    if (_updatedAt + maxDelay < block.timestamp) revert OutdatedAnswer();
+    return (tokenPrice * quantity * alternativePaymentTokenMagnitude) / uint256(_answer);
+  }
+
+  /// @inheritdoc ITheLodgeSaleHandler
+  function MAX_SUPPLY() public pure virtual returns (uint16);
+
   function _validateEthSale(uint256 quantity) internal view {
     uint256 _amountRequired = tokenPrice * quantity;
     if (msg.value != _amountRequired) revert InvalidFunds(msg.value, _amountRequired);
   }
 
   function _processTokenSale(uint256 quantity) internal {
-    uint256 _requiredAmount = _getPriceInToken(quantity);
+    uint256 _requiredAmount = getMintPriceInAlternativeToken(quantity);
     alternativePaymentToken.safeTransferFrom(msg.sender, address(this), _requiredAmount);
   }
 
@@ -153,7 +162,7 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
 
   function _validateCommon(uint256 quantity) internal view {
     if (_hasEnded()) revert SaleEnded();
-    if (totalSupply() + quantity > MAX_SUPPLY) revert TokenSupplyExceeded();
+    if (totalSupply() + quantity > MAX_SUPPLY()) revert TokenSupplyExceeded();
   }
 
   function _validateWhitelistSale(uint256 quantity, bytes32[] calldata _merkleProof) internal view {
@@ -162,13 +171,6 @@ abstract contract TheLodgeSaleHandler is Ownable, ITheLodgeSaleHandler, ERC721A,
     _validateCommonSale(quantity, true);
     bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
     if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidProof();
-  }
-
-  function _getPriceInToken(uint256 quantity) internal view returns (uint256) {
-    (, int256 _answer, , uint256 _updatedAt, ) = priceOracle.latestRoundData();
-    if (_answer <= 0) revert InvalidAnswer();
-    if (_updatedAt + maxDelay < block.timestamp) revert OutdatedAnswer();
-    return (tokenPrice * quantity * alternativePaymentTokenMagnitude) / uint256(_answer);
   }
 
   function _validateStartTimestamps(uint256 _saleStartTimestamp, uint256 _openSaleStartTimestamp) internal pure {

@@ -21,7 +21,7 @@ const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnviro
       oracle = '0xc7de7f4d4C9c991fF62a07D18b3E31e349833A18'; // APE/ETH Chainlink price feed
       alternativePaymentToken = '0x4d224452801aced8b2f0aebe155379bb5d594381'; // $APE address
       vrfCoordinator = '0x271682DEB8C4E0901D1a1550aD2e64D568E69909';
-      keyHash = '0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef';
+      keyHash = '0x9fe0eebf5e446e3c998ec9bb19951541aee00bb90ea201ae456421a2ded86805'; // 1000 gwei gas lane
       break;
     default:
       throw new Error(`Unsupported chain '${hre.network.name}`);

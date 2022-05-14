@@ -17,6 +17,10 @@ contract TheLodge is TheLodgeRevelationHandler, TheLodgeSaleHandler, TheLodgeTok
     return TheLodgeTokenInspectorHandler.tokenURI(tokenId);
   }
 
+  function MAX_SUPPLY() public pure override returns (uint16) {
+    return MAX_MINTABLE_APPRENTICE + MAX_MINTABLE_FELLOW + MAX_MINTABLE_MASTER;
+  }
+
   function _hasEnded() internal view override returns (bool) {
     return revealed;
   }

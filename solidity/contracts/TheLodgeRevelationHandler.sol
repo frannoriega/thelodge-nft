@@ -13,15 +13,14 @@ import '../library/TheLodgeConfig.sol';
 abstract contract TheLodgeRevelationHandler is Ownable, ITheLodgeRevelationHandler, VRFConsumerBaseV2 {
   /// @inheritdoc ITheLodgeRevelationHandler
   VRFCoordinatorV2Interface public immutable coordinator;
-  /// @notice The key hash to be used for requesting random words
-  /// to the VRF Coordinator.
-  bytes32 private immutable _keyHash;
   /// @inheritdoc ITheLodgeRevelationHandler
   uint256 public randomNumber;
   /// @inheritdoc ITheLodgeRevelationHandler
   bool public revealed;
   /// @notice The subscription id for Chainlink's VRF.
   uint64 internal _subId;
+  /// @notice The key hash to be used for requesting random words to the VRF Coordinator.
+  bytes32 internal immutable _keyHash;
 
   constructor(TheLodgeConfig.RevelationConfig memory _revelationConfig) VRFConsumerBaseV2(_revelationConfig.vrfCoordinator) {
     if (_revelationConfig.vrfCoordinator == address(0)) revert ZeroAddress();

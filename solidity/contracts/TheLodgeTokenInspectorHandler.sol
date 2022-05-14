@@ -49,7 +49,7 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
   mapping(address => bool) public isWhitelistedToPromote;
 
   mapping(uint256 => uint256) public promotions; // token id => URI id
-  mapping(Rarity => PromotionData) public promotionPerRarity; // current rarity => PromotionData
+  mapping(Rarity => PromotionData) public promotionPerRarity;
 
   RarityByIndex[77] private rarities;
 
