@@ -214,7 +214,10 @@ abstract contract TheLodgeTokenInspectorHandler is Ownable, ITheLodgeTokenInspec
     // we can calculate the URI id. By doing this, we can make sure that each token id is mapped to one and only one URI id. Also, since the
     // rarity is assigned based on a random number, we can make sure that no-one can predetermine the rarity based on the mint id.
 
-    uint256 normalizedValue = (tokenId + _getRandomNumber()) % 77;
+    uint256 normalizedValue;
+    unchecked {
+      normalizedValue = (tokenId + _getRandomNumber()) % 77;
+    }
     RarityByIndex memory rarityByIndex = rarities[normalizedValue];
     uint256 amountEvery77Tokens;
     uint256 base;

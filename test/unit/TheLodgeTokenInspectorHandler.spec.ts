@@ -5,6 +5,7 @@ import { given, then, when } from '@utils/bdd';
 import { snapshot } from '@utils/evm';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { constants } from 'ethers';
 
 describe('TheLodgeTokenInspectorHandler', () => {
   enum Rarity {
@@ -143,6 +144,16 @@ describe('TheLodgeTokenInspectorHandler', () => {
         expect(await tokenInspectorHandler.getRarity(1)).to.be.equal(Rarity.Master);
         expect(await tokenInspectorHandler.getRarity(2)).to.be.equal(Rarity.Fellow);
         expect(await tokenInspectorHandler.getRarity(3)).to.be.equal(Rarity.Apprentice);
+      });
+    });
+
+    when('random number is max possible', () => {
+      given(async () => {
+        await tokenInspectorHandler.setRandomNumber(constants.MaxUint256);
+      });
+      then('rarity still works correctly', async () => {
+        const rarity = await tokenInspectorHandler.getRarity(1);
+        expect(rarity).to.be.oneOf([Rarity.Apprentice, Rarity.Fellow, Rarity.Master]);
       });
     });
 
